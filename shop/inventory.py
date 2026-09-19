@@ -1403,7 +1403,11 @@ def get_tailoring_order(connection, tailoring_order_id):
     tailoring_order_id = _id(tailoring_order_id, "tailoring order")
     order = connection.execute(
         """SELECT t.*, sa.bill_number, sa.subtotal, sa.discount, sa.grand_total,
-                  sa.paid_amount, sa.remaining_balance, sa.created_at AS bill_created_at,
+                  sa.paid_amount, sa.remaining_balance,
+                  sa.remaining_balance - COALESCE(
+                      (SELECT SUM(p.amount) FROM payments p WHERE p.sale_id = sa.id), 0
+                  ) AS outstanding_balance,
+                  sa.created_at AS bill_created_at,
                   c.customer_number, c.name AS customer_name,
                   c.primary_mobile AS customer_mobile
            FROM tailoring_orders t
@@ -1459,12 +1463,15 @@ def list_tailoring_orders(connection, search="", status="", limit=200, customer_
         mobile_pattern = f"%{digits}%" if digits else pattern
         conditions.append(
             """(t.tailoring_number COLLATE NOCASE LIKE ? ESCAPE '\\'
+                 OR sa.bill_number COLLATE NOCASE LIKE ? ESCAPE '\\'
                  OR c.customer_number COLLATE NOCASE LIKE ? ESCAPE '\\'
                  OR c.name COLLATE NOCASE LIKE ? ESCAPE '\\'
                  OR c.primary_mobile_normalized LIKE ? ESCAPE '\\'
                  OR c.alternate_mobile_normalized LIKE ? ESCAPE '\\')"""
         )
-        parameters.extend((pattern, pattern, pattern, mobile_pattern, mobile_pattern))
+        parameters.extend(
+            (pattern, pattern, pattern, pattern, mobile_pattern, mobile_pattern)
+        )
     if status:
         conditions.append("t.status = ?")
         parameters.append(status)
@@ -1474,6 +1481,9 @@ def list_tailoring_orders(connection, search="", status="", limit=200, customer_
                   t.created_at, t.customer_id, c.customer_number, c.name AS customer_name,
                   c.primary_mobile AS customer_mobile, sa.id AS sale_id, sa.bill_number,
                   sa.grand_total, sa.paid_amount, sa.remaining_balance,
+                  sa.remaining_balance - COALESCE(
+                      (SELECT SUM(p.amount) FROM payments p WHERE p.sale_id = sa.id), 0
+                  ) AS outstanding_balance,
                   COUNT(ti.id) AS item_count
            FROM tailoring_orders t
            JOIN customers c ON c.id = t.customer_id
