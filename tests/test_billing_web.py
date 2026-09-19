@@ -288,6 +288,40 @@ class BillingWebTests(unittest.TestCase):
         self.assertNotIn("added to the current bill", page)
         self.assertIn('value="stale-value"', page)
 
+    def test_guided_sale_modes_show_only_relevant_sections_with_javascript(self):
+        self.sign_in()
+        page = self.client.get("/billing").get_data(as_text=True)
+        self.assertIn("What is the customer buying?", page)
+        self.assertIn('name="sale_mode" value="product" data-sale-mode checked', page)
+        self.assertIn('name="sale_mode" value="combined" data-sale-mode', page)
+        self.assertIn('name="sale_mode" value="tailoring" data-sale-mode', page)
+        self.assertIn('data-sale-mode-section="products"', page)
+        self.assertIn('data-sale-mode-section="tailoring"', page)
+        self.assertIn("All sections remain available below when JavaScript is unavailable.", page)
+
+        response = self.client.post(
+            "/billing",
+            data={
+                "csrf_token": self.csrf(),
+                "action": "open_selection",
+                "request_key": "billing-mode-preserve1",
+                "bill_items": "[]",
+                "tailoring_items": "[]",
+                "sale_mode": "combined",
+            },
+        )
+        self.assertEqual(200, response.status_code)
+        self.assertIn(
+            'name="sale_mode" value="combined" data-sale-mode checked',
+            response.get_data(as_text=True),
+        )
+
+        script = self.client.get("/static/app.js").get_data(as_text=True)
+        self.assertIn("function applySaleMode()", script)
+        self.assertIn('classList.toggle("sale-mode-hidden"', script)
+        css = self.client.get("/static/app.css").get_data(as_text=True)
+        self.assertIn(".sale-mode-hidden { display: none !important; }", css)
+
     def test_single_line_submission_recalculates_server_totals_and_redirects(self):
         variant_id, _, _, _, _ = self.fabric_variant()
         self.sign_in()
