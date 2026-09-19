@@ -185,6 +185,7 @@ class TailoringWebTests(unittest.TestCase):
         page = response.get_data(as_text=True)
         self.assertIn('name="customer_id" value="1"', page)
         self.assertIn("Selected customer", page)
+        self.assertNotIn("Selected CUST-000001 · Ahmed Khan.", page)
         self.assertIn('href="/customers?return_to=billing"', page)
         response = self.client.post("/customers", data={
             "csrf_token": self.csrf(), "return_to": "billing", "name": "Bilal Khan",
@@ -263,6 +264,14 @@ class TailoringWebTests(unittest.TestCase):
         page = response.get_data(as_text=True)
         self.assertEqual(200, response.status_code)
         self.assertIn("Tailoring item added to the bill draft", page)
+        self.assertGreater(
+            page.index("Tailoring item added to the bill draft"),
+            page.index("data-tailoring-addition"),
+        )
+        self.assertLess(
+            page.index("Tailoring item added to the bill draft"),
+            page.index("data-tailoring-refresh"),
+        )
         self.assertIn('name="tailoring_quantity" value="1"', page)
         self.assertIn("Stitching &middot; Shirt", page)
 
@@ -826,11 +835,13 @@ class TailoringWebTests(unittest.TestCase):
         )
         receipt = self.client.get(response.headers["Location"]).get_data(as_text=True)
         for text in (
-            "CUST-000001", "TAIL-000001", "Fabric &rsaquo; Yathreb",
+            "CUST-000001", "Fabric &rsaquo; Yathreb",
             "Stitching &rsaquo; Shirt", "Customer-provided cloth",
             "Promised delivery", "Initial paid / advance",
         ):
             self.assertIn(text, receipt)
+        self.assertNotIn("TAIL-000001", receipt)
+        self.assertNotIn("<span>Tailoring</span>", receipt)
         self.assertNotIn("Current fitting", receipt)
         self.assertIn("BILL-00000001", self.client.get("/sales").get_data(as_text=True))
         self.assertIn("PKR 1,600.00", self.client.get("/sales/daily").get_data(as_text=True))
