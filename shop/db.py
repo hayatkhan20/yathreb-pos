@@ -7,8 +7,8 @@ import sqlite3
 from flask import current_app, g
 
 
-SCHEMA_VERSION = 4
-SCHEMA_IDENTITY = "measurement-templates-rates-v4"
+SCHEMA_VERSION = 5
+SCHEMA_IDENTITY = "tailor-assignments-v5"
 
 
 def connect_database(path):
@@ -45,7 +45,7 @@ def get_db():
             g.db.close()
             g.pop("db")
             raise RuntimeError(
-                "This database does not use the Phase 3A.1 measurement-template and rate foundation. Preserve it and initialize a new database."
+                "This database does not use the Tailor-assignment foundation. Preserve it and run only the documented explicit upgrade when applicable."
             )
     return g.db
 
