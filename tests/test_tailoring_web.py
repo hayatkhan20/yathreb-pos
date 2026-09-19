@@ -760,7 +760,9 @@ class TailoringWebTests(unittest.TestCase):
         )
         self.assertEqual(201, response.status_code)
         second_tailor = response.get_json()["tailor"]
-        billing_page = self.client.get("/billing").get_data(as_text=True)
+        billing_page = self.client.get(
+            "/billing", query_string={"customer_id": customer["customer_id"]}
+        ).get_data(as_text=True)
         self.assertIn("Assigned Tailor", billing_page)
         self.assertIn("data-tailor-dialog", billing_page)
         self.assertIn("Naveed", billing_page)
