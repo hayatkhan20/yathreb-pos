@@ -308,7 +308,7 @@ class CustomerMeasurementWebTests(unittest.TestCase):
         self.sign_in()
         customer_page = self.client.get("/customers").get_data(as_text=True)
         self.assertIn('href="/customers" aria-current="page">Customers</a>', customer_page)
-        self.assertIn("Tailoring", customer_page)
+        self.assertIn('<span class="sidebar-group-label">Setup</span>', customer_page)
         self.assertIn('href="/measurements">Measurements</a>', customer_page)
         measurement_page = self.client.get(
             f"/customers/{customer['customer_id']}/measurements"
