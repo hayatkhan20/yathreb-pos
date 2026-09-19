@@ -1,9 +1,9 @@
--- Schema 4: inventory, sales, canonical measurements, versioned tailoring rates, and payments.
+-- Schema 5: schema 4 plus Tailor records and per-garment current assignment.
 CREATE TABLE settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
-INSERT INTO settings (key, value) VALUES ('schema_identity', 'measurement-templates-rates-v4');
+INSERT INTO settings (key, value) VALUES ('schema_identity', 'tailor-assignments-v5');
 
 CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -324,6 +324,24 @@ CREATE TABLE tailoring_items (
 CREATE INDEX tailoring_items_order ON tailoring_items (order_id, line_number);
 CREATE INDEX tailoring_items_source_sale_item ON tailoring_items (source_sale_item_id);
 CREATE INDEX tailoring_items_rate_revision ON tailoring_items (stitching_rate_revision_id);
+
+CREATE TABLE tailors (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL CHECK (length(trim(name)) BETWEEN 1 AND 80),
+    name_key TEXT NOT NULL UNIQUE,
+    mobile TEXT NOT NULL DEFAULT '' CHECK (length(mobile) <= 40),
+    active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE TABLE tailoring_item_assignments (
+    tailoring_item_id INTEGER PRIMARY KEY REFERENCES tailoring_items(id) ON DELETE RESTRICT,
+    tailor_id INTEGER NOT NULL REFERENCES tailors(id) ON DELETE RESTRICT,
+    assigned_by_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    assigned_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+CREATE INDEX tailoring_item_assignments_tailor
+    ON tailoring_item_assignments (tailor_id, tailoring_item_id);
 
 CREATE TABLE payment_sequence (
     id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -674,4 +692,4 @@ BEGIN SELECT RAISE(ABORT, 'Saved stock movements cannot be edited.'); END;
 CREATE TRIGGER stock_movements_no_delete BEFORE DELETE ON stock_movements
 BEGIN SELECT RAISE(ABORT, 'Saved stock movements cannot be deleted.'); END;
 
-PRAGMA user_version = 4;
+PRAGMA user_version = 5;
