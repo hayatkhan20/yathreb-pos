@@ -82,7 +82,7 @@
         <button type="submit" class="secondary small" name="action" value="clear_customer" formnovalidate>Clear customer</button>
       </div>
     {% endif %}
-    <div class="filter-grid">
+    <div class="filter-grid billing-customer-row">
       <div class="field customer-search-field">
         <label for="billing-customer-search">Customer ID, name, or mobile</label>
         <input id="billing-customer-search" type="search" name="customer_query" value="{{ customer_query }}" maxlength="120" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="billing-customer-results" aria-expanded="{{ 'true' if customer_matches else 'false' }}" data-billing-customer-search>
