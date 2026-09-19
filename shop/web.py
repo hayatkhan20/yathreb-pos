@@ -761,6 +761,36 @@ def stock():
     )
 
 
+def _billing_customer_option(customer):
+    return {
+        "id": customer["id"],
+        "customer_number": customer["customer_number"],
+        "name": customer["name"],
+        "primary_mobile": customer["primary_mobile"],
+    }
+
+
+@bp.route("/billing/customers", methods=["GET", "POST"])
+def billing_customers():
+    if request.method == "GET":
+        query = request.args.get("q", "")
+        if not query.strip():
+            return jsonify(customers=[])
+        try:
+            rows = search_customers(get_db(), query, limit=8)
+        except DomainError as caught:
+            return jsonify(error=str(caught)), 400
+        return jsonify(customers=[_billing_customer_option(row) for row in rows])
+
+    form_values = _customer_values(request.form)
+    try:
+        saved = create_customer(get_db(), **form_values)
+        customer = get_customer(get_db(), saved["customer_id"])
+    except DomainError as caught:
+        return jsonify(error=str(caught)), 400
+    return jsonify(customer=_billing_customer_option(customer)), 201
+
+
 @bp.route("/billing", methods=["GET", "POST"])
 def billing():
     if request.method == "GET":
