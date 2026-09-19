@@ -164,7 +164,6 @@
   {% endif %}
 
   {% if error and feedback_target == 'product' %}<div class="alert error" role="alert">{{ error }} The current bill has been kept where possible.</div>{% endif %}
-  {% if notice and feedback_target == 'product' %}<div class="alert success" role="status">{{ notice }}</div>{% endif %}
 
   <section
     class="card variant-card"
@@ -198,6 +197,7 @@
       </div>
       <button type="submit" class="secondary" name="action" value="save_default" formnovalidate>Save default price</button>
     </div>
+    {% if notice and feedback_target == 'product' %}<div class="alert success" role="status">{{ notice }}</div>{% endif %}
 
     <div class="field-row billing-line-fields">
       <div class="field">
