@@ -289,6 +289,125 @@ class WebFoundationTests(unittest.TestCase):
         with closing(connect_database(self.database)) as connection:
             self.assertEqual([], list_stock(connection))
 
+    def test_current_stock_summarizes_each_product_separately(self):
+        fabric, fabric_brand, _, article, _, fabric_colour, _ = self.make_fabric_catalogue()
+        sized, sized_brand, _, sized_colour, _, sized_size, _ = self.make_sized_catalogue()
+        self.sign_in()
+
+        for request_key, product_id, brand_id, article_id, colour_id, size_id, quantity in (
+            ("product-total-fabric", fabric["id"], fabric_brand, article, fabric_colour, "", "7.5"),
+            ("product-total-sized", sized["id"], sized_brand, "", sized_colour, sized_size, "3"),
+        ):
+            response = self.client.post(
+                "/stock",
+                data={
+                    "csrf_token": self.csrf(),
+                    "request_key": request_key,
+                    "product_id": product_id,
+                    "brand_id": brand_id,
+                    "article_id": article_id,
+                    "colour_id": colour_id,
+                    "size_id": size_id,
+                    "quantity": quantity,
+                    "kind": "receipt",
+                    "note": "",
+                },
+            )
+            self.assertEqual(303, response.status_code)
+
+        page = self.client.get("/").get_data(as_text=True)
+        self.assertIn("Product totals", page)
+        self.assertIn("<span>Fabric</span><strong>7.5 metres</strong>", page)
+        self.assertIn(
+            f"<span>{sized['name']}</span><strong>3 {sized['unit']}s</strong>",
+            page,
+        )
+        self.assertEqual(2, page.count("data-stock-product-total"))
+
+    def test_add_stock_can_create_each_catalogue_level_inline(self):
+        self.sign_in()
+        page = self.client.get("/stock").get_data(as_text=True)
+        self.assertIn('data-stock-catalogue-add="product"', page)
+        self.assertIn('data-stock-catalogue-add="brand"', page)
+        self.assertIn("data-stock-catalogue-dialog", page)
+
+        response = self.client.post(
+            "/stock/catalogue",
+            data={
+                "csrf_token": self.csrf(),
+                "kind": "product",
+                "name": "Test Belt",
+                "classification": "colour_size",
+                "unit": "piece",
+            },
+            headers={"Accept": "application/json"},
+        )
+        self.assertEqual(201, response.status_code)
+        product_id = response.get_json()["item"]["id"]
+
+        response = self.client.post(
+            "/stock/catalogue",
+            data={
+                "csrf_token": self.csrf(),
+                "kind": "brand",
+                "name": "Test Brand",
+                "product_id": product_id,
+            },
+            headers={"Accept": "application/json"},
+        )
+        self.assertEqual(201, response.status_code)
+        brand_id = response.get_json()["item"]["id"]
+
+        response = self.client.post(
+            "/stock/catalogue",
+            data={
+                "csrf_token": self.csrf(),
+                "kind": "colour",
+                "name": "Brown",
+                "product_id": product_id,
+                "brand_id": brand_id,
+            },
+            headers={"Accept": "application/json"},
+        )
+        self.assertEqual(201, response.status_code)
+        colour_id = response.get_json()["item"]["id"]
+
+        response = self.client.post(
+            "/stock/catalogue",
+            data={
+                "csrf_token": self.csrf(),
+                "kind": "size",
+                "name": "Medium",
+                "product_id": product_id,
+                "brand_id": brand_id,
+                "colour_id": colour_id,
+            },
+            headers={"Accept": "application/json"},
+        )
+        self.assertEqual(201, response.status_code)
+        size_payload = response.get_json()
+        self.assertIn(f"product_id={product_id}", size_payload["redirect_url"])
+        self.assertIn(f"size_id={size_payload['item']['id']}", size_payload["redirect_url"])
+
+        with closing(connect_database(self.database)) as connection:
+            fabric = next(
+                item for item in catalogue(connection)["products"]
+                if item["name"] == "Fabric"
+            )
+            fabric_brand = add_brand(connection, "Inline Fabric Brand", fabric["id"])
+        response = self.client.post(
+            "/stock/catalogue",
+            data={
+                "csrf_token": self.csrf(),
+                "kind": "article",
+                "name": "Inline Article",
+                "product_id": fabric["id"],
+                "brand_id": fabric_brand,
+            },
+            headers={"Accept": "application/json"},
+        )
+        self.assertEqual(201, response.status_code)
+
     def test_children_endpoint_returns_only_canonical_parent_scoped_choices(self):
         fabric, first_brand, _, first_article, second_article, first_colour, second_colour = (
             self.make_fabric_catalogue()
