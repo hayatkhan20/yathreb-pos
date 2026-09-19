@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+{% block title %}Catalogue &middot; Shop inventory{% endblock %}
+{% block content %}
+{% macro chain_fields() -%}
+  <input type="hidden" name="product_id" value="{{ product_id or '' }}">
+  <input type="hidden" name="brand_id" value="{{ brand_id or '' }}">
+  <input type="hidden" name="article_id" value="{{ article_id or '' }}">
+  <input type="hidden" name="colour_id" value="{{ colour_id or '' }}">
+  <input type="hidden" name="size_id" value="{{ size_id or '' }}">
+{%- endmacro %}
+
+{% macro catalogue_item(kind, item, anchor) -%}
+  <div class="catalogue-item-row">
+    <form method="post" action="{{ url_for('web.catalogue_page', _anchor=anchor) }}" class="inline-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {{ chain_fields() }}
+      <input type="hidden" name="action" value="rename_label">
+      <input type="hidden" name="kind" value="{{ kind }}">
+      <input type="hidden" name="item_id" value="{{ item.id }}">
+      <label class="visually-hidden" for="rename-{{ kind }}-{{ item.id }}">Rename {{ item.name }}</label>
+      <input id="rename-{{ kind }}-{{ item.id }}" name="name" value="{{ item.name }}" maxlength="80" required>
+      <button type="submit" class="secondary small">Rename</button>
+    </form>
+    <form method="post" action="{{ url_for('web.catalogue_page', _anchor='delete-confirmation') }}" class="delete-form" data-delete-form data-delete-label="{{ item.name }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {{ chain_fields() }}
+      <input type="hidden" name="action" value="request_delete" data-delete-action>
+      <input type="hidden" name="kind" value="{{ kind }}">
+      <input type="hidden" name="item_id" value="{{ item.id }}">
+      <button type="submit" class="danger small">Delete</button>
+    </form>
+  </div>
+{%- endmacro %}
+
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">Inventory</p>
+    <h1>Catalogue</h1>
+    <p>Open a product, then manage each level beneath its selected parent.</p>
+  </div>
+  <a class="button primary" href="{{ url_for('web.stock', product_id=product_id or '', brand_id=brand_id or '', article_id=article_id or '', colour_id=colour_id or '', size_id=size_id or '') }}">Add stock</a>
+</div>
+
+{% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+{% if notice %}<div class="alert success" role="status">{{ notice }}</div>{% endif %}
+
+<section id="open-product-section" class="card management-section" aria-labelledby="open-product-heading" tabindex="-1">
+  <h2 id="open-product-heading">Open a product</h2>
+  <form method="get" action="{{ url_for('web.catalogue_page', _anchor='product-editor') }}" class="filter-grid" data-catalogue-open-form>
+    <div class="field">
+      <label for="product_id">Product</label>
+      <select id="product_id" name="product_id" required data-catalogue-select="product">
+        <option value="">Choose product</option>
+        {% for item in catalogue.products %}
+          <option value="{{ item.id }}"{% if product_id == item.id %} selected{% endif %}>{{ item.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-actions" data-catalogue-open-fallback><button type="submit" class="secondary">Open product</button></div>
+  </form>
+</section>
+
+{% if delete_candidate %}
+  <section id="delete-confirmation" class="card attention management-section" aria-labelledby="delete-confirmation-heading">
+    <h2 id="delete-confirmation-heading">Permanently delete {{ delete_candidate.kind }}?</h2>
+    <p><strong>{{ delete_candidate.name }}</strong> will be deleted only if it has no children and has never been used by an inventory variant or sale.</p>
+    <form method="post" action="{{ url_for('web.catalogue_page', _anchor='delete-confirmation') }}" class="form-actions">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {{ chain_fields() }}
+      <input type="hidden" name="action" value="delete_label">
+      <input type="hidden" name="confirm_delete" value="yes">
+      <input type="hidden" name="kind" value="{{ delete_candidate.kind }}">
+      <input type="hidden" name="item_id" value="{{ delete_candidate.id }}">
+      <button type="submit" class="danger">Confirm permanent deletion</button>
+      <a class="button secondary" href="{{ url_for('web.catalogue_page', product_id=product_id or '', brand_id=brand_id or '', article_id=article_id or '', colour_id=colour_id or '', size_id=size_id or '', _anchor='products-section') }}">Cancel</a>
+    </form>
+  </section>
+{% endif %}
+
+{% if selected_product %}
+  <div id="product-editor" class="management-anchor" tabindex="-1" aria-label="{{ selected_product.name }} management"></div>
+  {% if not selected_product.unit %}
+    <section class="card attention" aria-labelledby="unit-heading">
+      <h2 id="unit-heading">Confirm {{ selected_product.name }} stock unit</h2>
+      <p>The recorded suggestion is <strong>{{ unit_labels[selected_product.suggested_unit] }}</strong>. It remains a proposal until you confirm a unit here. The confirmed unit cannot later be changed because stock history depends on it.</p>
+      <form method="post" action="{{ url_for('web.catalogue_page', _anchor='product-editor') }}" class="inline-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {{ chain_fields() }}
+        <input type="hidden" name="action" value="confirm_unit">
+        <label for="confirm-unit">Stock unit</label>
+        <select id="confirm-unit" name="unit" required>
+          <option value="pair"{% if selected_product.suggested_unit == 'pair' %} selected{% endif %}>Pairs</option>
+          <option value="piece"{% if selected_product.suggested_unit == 'piece' %} selected{% endif %}>Pieces</option>
+        </select>
+        <button type="submit" class="primary">Confirm unit</button>
+      </form>
+    </section>
+  {% endif %}
+
+  <section id="brands-section" class="card management-section" aria-labelledby="brands-heading" tabindex="-1">
+    <h2 id="brands-heading">Brands in {{ selected_product.name }}</h2>
+    <form method="get" action="{{ url_for('web.catalogue_page', _anchor='brand-editor') }}" class="filter-grid" data-catalogue-open-form>
+      <input type="hidden" name="product_id" value="{{ product_id }}">
+      <div class="field">
+        <label for="brand_id">Brand</label>
+        <select id="brand_id" name="brand_id" data-catalogue-select="brand" data-catalogue-add-label="+ Add new Brand&hellip;">
+          <option value="">Choose brand</option>
+          {% for item in brands %}<option value="{{ item.id }}"{% if brand_id == item.id %} selected{% endif %}>{{ item.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-actions" data-catalogue-open-fallback><button type="submit" class="secondary">Open brand</button></div>
+    </form>
+    <p class="section-note">
+      Structure: Product &rarr; Brand{% if selected_product.classification == 'article_colour' %} &rarr; Article &rarr; Colour{% else %} &rarr; Colour{% if selected_product.classification == 'colour_size' %} &rarr; Size{% endif %}{% endif %}.
+      Stock unit: {% if selected_product.unit %}{{ unit_labels[selected_product.unit] }}{% else %}not yet confirmed{% endif %}.
+    </p>
+    <form method="post" action="{{ url_for('web.catalogue_page', _anchor='brands-section') }}" class="inline-form add-form" data-catalogue-add-form="brand"{% if error and form.get('action') == 'add_brand' %} data-catalogue-add-error{% endif %}>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {{ chain_fields() }}
+      <input type="hidden" name="action" value="add_brand">
+      <label for="new-brand-name">Add brand</label>
+      <input id="new-brand-name" name="name" maxlength="80" placeholder="Brand name" required>
+      <button type="submit" class="primary">Add brand</button>
+    </form>
+    {% if brands %}
+      <div class="item-list">{% for item in brands %}{{ catalogue_item('brand', item, 'brands-section') }}{% endfor %}</div>
+    {% else %}<p class="empty-copy">No brands have been added to this product.</p>{% endif %}
+  </section>
+
+{% endif %}
+
+{% if selected_brand and selected_product.classification == 'article_colour' %}
+  <div id="brand-editor" class="management-anchor" tabindex="-1" aria-label="{{ selected_brand.name }} management"></div>
+  <section id="articles-section" class="card management-section" aria-labelledby="articles-heading" tabindex="-1">
+    <h2 id="articles-heading">Articles in {{ selected_brand.name }}</h2>
+    <form method="get" action="{{ url_for('web.catalogue_page', _anchor='article-editor') }}" class="filter-grid" data-catalogue-open-form>
+      <input type="hidden" name="product_id" value="{{ product_id }}">
+      <input type="hidden" name="brand_id" value="{{ brand_id }}">
+      <div class="field">
+        <label for="article_id">Article</label>
+        <select id="article_id" name="article_id" data-catalogue-select="article" data-catalogue-add-label="+ Add new Article&hellip;">
+          <option value="">Choose article</option>
+          {% for item in articles %}<option value="{{ item.id }}"{% if article_id == item.id %} selected{% endif %}>{{ item.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-actions" data-catalogue-open-fallback><button type="submit" class="secondary">Open article</button></div>
+    </form>
+    <form method="post" action="{{ url_for('web.catalogue_page', _anchor='articles-section') }}" class="inline-form add-form" data-catalogue-add-form="article"{% if error and form.get('action') == 'add_article' %} data-catalogue-add-error{% endif %}>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {{ chain_fields() }}
+      <input type="hidden" name="action" value="add_article">
+      <label for="new-article-name">Add article</label>
+      <input id="new-article-name" name="name" maxlength="80" placeholder="Article name" required>
+      <button type="submit" class="primary">Add article</button>
+    </form>
+    {% if articles %}
+      <div class="item-list">{% for item in articles %}{{ catalogue_item('article', item, 'articles-section') }}{% endfor %}</div>
+    {% else %}<p class="empty-copy">No articles have been added to this brand.</p>{% endif %}
+  </section>
+
+{% endif %}
+
+{% if selected_brand and (selected_product.classification != 'article_colour' or selected_article) %}
+  {% if selected_product.classification != 'article_colour' %}
+    <div id="brand-editor" class="management-anchor" tabindex="-1" aria-label="{{ selected_brand.name }} management"></div>
+  {% else %}
+    <div id="article-editor" class="management-anchor" tabindex="-1" aria-label="{{ selected_article.name }} management"></div>
+  {% endif %}
+  <section id="colours-section" class="card management-section" aria-labelledby="colours-heading" tabindex="-1">
+    <h2 id="colours-heading">Colours in {% if selected_article %}{{ selected_article.name }}{% else %}{{ selected_brand.name }}{% endif %}</h2>
+    <form method="get" action="{{ url_for('web.catalogue_page', _anchor='colour-editor') }}" class="filter-grid" data-catalogue-open-form>
+      <input type="hidden" name="product_id" value="{{ product_id }}">
+      <input type="hidden" name="brand_id" value="{{ brand_id }}">
+      <input type="hidden" name="article_id" value="{{ article_id or '' }}">
+      <div class="field">
+        <label for="colour_id">Colour</label>
+        <select id="colour_id" name="colour_id" data-catalogue-select="colour" data-catalogue-add-label="+ Add new Colour&hellip;">
+          <option value="">Choose colour</option>
+          {% for item in colours %}<option value="{{ item.id }}"{% if colour_id == item.id %} selected{% endif %}>{{ item.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-actions" data-catalogue-open-fallback><button type="submit" class="secondary">Open colour</button></div>
+    </form>
+    <form method="post" action="{{ url_for('web.catalogue_page', _anchor='colours-section') }}" class="inline-form add-form" data-catalogue-add-form="colour"{% if error and form.get('action') == 'add_colour' %} data-catalogue-add-error{% endif %}>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {{ chain_fields() }}
+      <input type="hidden" name="action" value="add_colour">
+      <label for="new-colour-name">Add colour</label>
+      <input id="new-colour-name" name="name" maxlength="80" placeholder="Colour name" required>
+      <button type="submit" class="primary">Add colour</button>
+    </form>
+    {% if colours %}
+      <div class="item-list">{% for item in colours %}{{ catalogue_item('colour', item, 'colours-section') }}{% endfor %}</div>
+    {% else %}<p class="empty-copy">No colours have been added to this {% if selected_article %}article{% else %}brand{% endif %}.</p>{% endif %}
+    {% if selected_colour %}<div id="colour-editor" class="management-anchor" tabindex="-1" aria-label="{{ selected_colour.name }} management"></div>{% endif %}
+  </section>
+{% endif %}
+
+{% if selected_product and selected_product.classification == 'colour_size' and selected_colour %}
+  <section id="sizes-section" class="card management-section" aria-labelledby="sizes-heading" tabindex="-1">
+    <h2 id="sizes-heading">Sizes in {{ selected_colour.name }}</h2>
+    <form method="get" action="{{ url_for('web.catalogue_page', _anchor='size-editor') }}" class="filter-grid" data-catalogue-open-form>
+      <input type="hidden" name="product_id" value="{{ product_id }}">
+      <input type="hidden" name="brand_id" value="{{ brand_id }}">
+      <input type="hidden" name="colour_id" value="{{ colour_id }}">
+      <div class="field">
+        <label for="size_id">Size</label>
+        <select id="size_id" name="size_id" data-catalogue-select="size" data-catalogue-add-label="+ Add new Size&hellip;">
+          <option value="">Choose size</option>
+          {% for item in sizes %}<option value="{{ item.id }}"{% if size_id == item.id %} selected{% endif %}>{{ item.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-actions" data-catalogue-open-fallback><button type="submit" class="secondary">Open size</button></div>
+    </form>
+    <form method="post" action="{{ url_for('web.catalogue_page', _anchor='sizes-section') }}" class="inline-form add-form" data-catalogue-add-form="size"{% if error and form.get('action') == 'add_size' %} data-catalogue-add-error{% endif %}>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {{ chain_fields() }}
+      <input type="hidden" name="action" value="add_size">
+      <label for="new-size-name">Add size</label>
+      <input id="new-size-name" name="name" maxlength="80" placeholder="Size name" required>
+      <button type="submit" class="primary">Add size</button>
+    </form>
+    {% if sizes %}
+      <div class="item-list">{% for item in sizes %}{{ catalogue_item('size', item, 'sizes-section') }}{% endfor %}</div>
+    {% else %}<p class="empty-copy">No sizes have been added to this colour.</p>{% endif %}
+    {% if selected_size %}<div id="size-editor" class="management-anchor" tabindex="-1" aria-label="{{ selected_size.name }} management"></div>{% endif %}
+  </section>
+{% endif %}
+
+{% if selected_brand %}
+  <p class="section-note">Names must be unique within their immediate parent. The same article, colour, or size name may be used under a different parent.</p>
+{% endif %}
+
+{% set product_management_error = error and (
+  form.get('action') == 'add_product' or
+  (form.get('kind') == 'product' and form.get('action') in ('rename_label', 'delete_label'))
+) %}
+<details id="products-section" class="card expandable-section management-section"{% if product_management_error %} open{% endif %}>
+  <summary><strong>Manage Products</strong><span>Add, rename, or remove an unused Product</span></summary>
+  <div class="expandable-content">
+    <div id="add-product-section" class="management-anchor" tabindex="-1"></div>
+    <h2>Add Product</h2>
+    <p class="section-note">Fabric is already configured for articles. A new Product can use Brand &rarr; Colour or Brand &rarr; Colour &rarr; Size.</p>
+    <form method="post" action="{{ url_for('web.catalogue_page', _anchor='add-product-section') }}" class="inline-form add-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="add_product">
+      <label for="new-product-name">Product name</label>
+      <input id="new-product-name" name="name" maxlength="80" placeholder="Product name" required>
+      <select name="classification" aria-label="Product structure" required>
+        <option value="colour">Brand, then colour</option>
+        <option value="colour_size">Brand, then colour, then size</option>
+      </select>
+      <select name="unit" aria-label="Stock unit" required>
+        <option value="piece">Pieces</option>
+        <option value="pair">Pairs</option>
+      </select>
+      <button type="submit" class="primary">Add Product</button>
+    </form>
+
+    <h2>Existing Products</h2>
+    <p class="section-note">The seven required seeded Product definitions can be renamed but cannot be deleted.</p>
+    <div class="item-list">
+      {% for item in catalogue.products %}
+        {{ catalogue_item('product', item, 'products-section') }}
+      {% endfor %}
+    </div>
+  </div>
+</details>
+{% endblock %}

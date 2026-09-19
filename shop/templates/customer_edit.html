@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ customer.customer_number }} &middot; Customers{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">{{ customer.customer_number }}</p><h1>Edit customer</h1><p>The generated Customer ID remains unchanged.</p></div></div>
+{% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+<section class="card">
+  <form method="post" action="{{ url_for('web.customer_edit', customer_id=customer.id) }}" class="stacked-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field-row">
+      <div class="field"><label for="edit-customer-name">Name</label><input id="edit-customer-name" name="name" value="{{ form.name }}" maxlength="120" required autocomplete="name"></div>
+      <div class="field"><label for="edit-customer-mobile">Primary mobile</label><input id="edit-customer-mobile" name="primary_mobile" value="{{ form.primary_mobile }}" maxlength="40" required inputmode="tel" autocomplete="tel"></div>
+    </div>
+    <div class="field"><label for="edit-customer-alt">Alternate mobile <span class="optional">optional</span></label><input id="edit-customer-alt" name="alternate_mobile" value="{{ form.alternate_mobile }}" maxlength="40" inputmode="tel"></div>
+    <div class="field"><label for="edit-customer-address">Address <span class="optional">optional</span></label><textarea id="edit-customer-address" name="address" maxlength="500" rows="3">{{ form.address }}</textarea></div>
+    <div class="field"><label for="edit-customer-notes">Notes <span class="optional">optional</span></label><textarea id="edit-customer-notes" name="notes" maxlength="2000" rows="4">{{ form.notes }}</textarea></div>
+    <div class="form-actions"><button type="submit" class="primary">Save contact details</button><a class="button secondary" href="{{ url_for('web.customer_detail', customer_id=customer.id) }}">Cancel</a></div>
+  </form>
+</section>
+{% endblock %}

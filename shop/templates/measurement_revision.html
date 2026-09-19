@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Measurement revision {{ revision.revision_number }} &middot; Tailoring{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">{{ customer.customer_number }} &middot; Read-only history</p><h1>{{ revision.garment_category }} revision {{ revision.revision_number }}</h1><p>{{ customer.name }} &middot; saved {{ revision.created_at[:10] }} {{ revision.created_at[11:19] }} UTC</p></div><a class="button secondary" href="{{ url_for('web.customer_measurements', customer_id=customer.id, category=revision.garment_category) }}">Back to measurements</a></div>
+<div class="alert attention" role="note">This historical revision is read-only and is never changed by later measurement updates.</div>
+<section class="card" aria-labelledby="saved-measurements-heading">
+  <h2 id="saved-measurements-heading">{% if revision.custom_description %}{{ revision.custom_description }}{% else %}{{ revision.garment_category }}{% endif %}</h2>
+  <dl class="record-grid">
+    {% for label, value in revision.measurements.items() %}<div><dt>{{ label }}</dt><dd>{{ value|quantity }} inches</dd></div>{% endfor %}
+  </dl>
+  {% if revision.styles %}<h3>Style details</h3><ul class="plain-list">{% for label, selected in revision.styles.items() %}<li><strong>{{ label }}:</strong> {{ 'Yes' if selected else 'No' }}</li>{% endfor %}</ul>{% endif %}
+  <h3>Note</h3><p class="preserve-lines">{{ revision.notes or 'No note recorded.' }}</p>
+</section>
+{% endblock %}

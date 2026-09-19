@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Sign in · Shop inventory{% endblock %}
+{% block content %}
+<section class="narrow-card" aria-labelledby="login-heading">
+  <p class="eyebrow">Private shop records</p>
+  <h1 id="login-heading">Sign in</h1>
+  <p>Use the owner account created during database setup.</p>
+  {% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" class="stacked-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field">
+      <label for="username">Username</label>
+      <input id="username" name="username" value="{{ username }}" maxlength="60" autocomplete="username" required autofocus>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" minlength="12" maxlength="128" autocomplete="current-password" required>
+    </div>
+    <button type="submit" class="primary">Sign in</button>
+  </form>
+</section>
+{% endblock %}

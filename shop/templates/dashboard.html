@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Dashboard &middot; Shop inventory{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <h1>Dashboard</h1>
+    <p>Start a sale or open the shop record you need.</p>
+  </div>
+</div>
+
+<section class="dashboard-section dashboard-start" aria-labelledby="dashboard-start-heading">
+  <h2 id="dashboard-start-heading" class="visually-hidden">Start a new sale</h2>
+  <a class="dashboard-primary-link" href="{{ url_for('web.billing') }}" data-dashboard-primary>
+    <strong>New Sale</strong>
+    <span>Start a product, stitching, or combined sale.</span>
+  </a>
+</section>
+
+<section class="dashboard-section" aria-labelledby="daily-work-heading">
+  <div class="dashboard-section-heading">
+    <p class="eyebrow">Daily work</p>
+    <h2 id="daily-work-heading">Help the next customer</h2>
+  </div>
+  <nav class="dashboard-grid dashboard-daily" aria-label="Daily work">
+    <a class="dashboard-link" href="{{ url_for('web.tailoring_orders') }}"><strong>Find Order / Collection</strong><span>Find a tailoring order by order number or customer details.</span></a>
+    <a class="dashboard-link" href="{{ url_for('web.customers') }}"><strong>Find Customer</strong><span>Search customer records by ID, name, or mobile.</span></a>
+    <a class="dashboard-link" href="{{ url_for('web.customer_balances') }}"><strong>Customer Balances / Receive Payment</strong><span>Find an account, review unpaid bills, and receive a payment.</span></a>
+  </nav>
+</section>
+
+<section class="dashboard-section dashboard-secondary" aria-labelledby="stock-actions-heading">
+  <div class="dashboard-section-heading">
+    <p class="eyebrow">Stock</p>
+    <h2 id="stock-actions-heading">Stock actions</h2>
+  </div>
+  <nav class="dashboard-grid dashboard-stock" aria-label="Stock actions">
+    <a class="dashboard-link" href="{{ url_for('web.index') }}"><strong>Current Stock</strong><span>Check recorded stock balances.</span></a>
+    <a class="dashboard-link" href="{{ url_for('web.stock') }}"><strong>Add Stock</strong><span>Record incoming or opening stock.</span></a>
+  </nav>
+</section>
+
+<section class="dashboard-section dashboard-secondary" aria-labelledby="records-setup-heading">
+  <div class="dashboard-section-heading">
+    <p class="eyebrow">Records and setup</p>
+    <h2 id="records-setup-heading">Records and Setup</h2>
+  </div>
+  <nav class="dashboard-grid dashboard-records" aria-label="Records and Setup">
+    <a class="dashboard-link" href="{{ url_for('web.sales_history') }}"><strong>Sales &amp; Receipts</strong><span>Find finalized bills and reprint receipts.</span></a>
+    <a class="dashboard-link" href="{{ url_for('web.daily_sales') }}"><strong>Daily Sales</strong><span>Review finalized sales for one day.</span></a>
+    <a class="dashboard-link" href="{{ url_for('web.monthly_sales') }}"><strong>Monthly Sales</strong><span>Review finalized sales for one month.</span></a>
+    <a class="dashboard-link" href="{{ url_for('web.history') }}"><strong>Stock History</strong><span>Review saved stock entries.</span></a>
+    <a class="dashboard-link" href="{{ url_for('web.catalogue_page') }}"><strong>Catalogue</strong><span>Manage products and their choices.</span></a>
+    <a class="dashboard-link" href="{{ url_for('web.measurement_customers') }}"><strong>Measurements</strong><span>Find a customer and review or record measurements.</span></a>
+    <a class="dashboard-link" href="{{ url_for('web.stitching_rates') }}"><strong>Stitching Rates</strong><span>View and update standard stitching prices.</span></a>
+  </nav>
+</section>
+{% endblock %}

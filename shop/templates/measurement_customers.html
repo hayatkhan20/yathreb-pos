@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Measurements &middot; Tailoring{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">Tailoring</p><h1>Measurements</h1><p>Select a customer before viewing or recording measurements.</p></div></div>
+{% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+<section class="card">
+  <form method="get" action="{{ url_for('web.measurement_customers') }}" class="filter-grid">
+    <div class="field"><label for="measurement-customer-search">Customer ID, name, or mobile</label><input id="measurement-customer-search" type="search" name="q" value="{{ search }}" maxlength="120"></div>
+    <div class="form-actions"><button type="submit" class="primary">Search</button><a class="button secondary" href="{{ url_for('web.measurement_customers') }}">Clear</a></div>
+  </form>
+</section>
+<section class="card table-card">
+  {% if customers %}<div class="table-wrap"><table><thead><tr><th>Customer ID</th><th>Name</th><th>Mobile</th><th>Measurements</th></tr></thead><tbody>
+  {% for customer in customers %}<tr><td>{{ customer.customer_number }}</td><td>{{ customer.name }}</td><td>{{ customer.primary_mobile }}</td><td><a href="{{ url_for('web.customer_measurements', customer_id=customer.id) }}">Open measurements</a></td></tr>{% endfor %}
+  </tbody></table></div>{% else %}<p class="empty-copy">No customers found.</p>{% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% block title %}Billing &middot; Shop inventory{% endblock %}
+{% block content %}
+{% set needs_article = selected_product and selected_product.classification == 'article_colour' %}
+{% set needs_size = selected_product and selected_product.classification == 'colour_size' %}
+{% set bill_line_count = quoted_items|length + quoted_tailoring|length %}
+
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">Sales</p>
+    <h1>Billing</h1>
+    <p>Build one bill from products, stitching services, or both. Recorded stock shortages never prevent a sale.</p>
+  </div>
+  <a class="button secondary" href="{{ url_for('web.sales_history') }}">Sales history</a>
+</div>
+
+{% if error %}<div class="alert error" role="alert">{{ error }} The current bill has been kept where possible.</div>{% endif %}
+{% if notice %}<div class="alert success" role="status">{{ notice }}</div>{% endif %}
+<div class="alert success billing-add-confirmation" role="status" aria-live="polite" tabindex="-1" data-billing-confirmation{% if not product_confirmation %} hidden{% endif %}>
+  <strong data-billing-confirmation-heading>{% if product_confirmation %}{{ product_confirmation.product }} added to the current bill.{% endif %}</strong>
+  <span data-billing-confirmation-detail>{% if product_confirmation %}{{ product_confirmation.description }} &middot; {{ product_confirmation.quantity|quantity }} {{ unit_labels[product_confirmation.unit] }}{% endif %}</span>
+</div>
+
+<section id="current-bill-summary" class="card current-bill-summary" aria-labelledby="current-bill-summary-heading" tabindex="-1" data-current-bill-summary{% if not bill_line_count %} hidden{% endif %}>
+  <div class="section-heading">
+    <div><p class="eyebrow">Current bill</p><h2 id="current-bill-summary-heading">Current bill</h2></div>
+    <strong data-current-bill-count>{{ bill_line_count }} item{{ '' if bill_line_count == 1 else 's' }}</strong>
+  </div>
+  <ul class="current-bill-items" data-current-bill-items>
+    {% for item in quoted_items %}<li><span>{{ item.description }}</span><strong>{{ item.quantity|quantity }} {{ unit_labels[item.unit] }}</strong></li>{% endfor %}
+    {% for item in quoted_tailoring %}<li><span>Stitching &middot; {{ item.description }}</span><strong>{{ item.quantity|quantity }} piece{{ '' if item.quantity == 1000 else 's' }}</strong></li>{% endfor %}
+  </ul>
+  <div class="current-bill-footer"><span>Running subtotal</span><strong>PKR <span data-current-bill-subtotal>{{ subtotal|pkr }}</span></strong><a href="#bill-review">Review bill</a></div>
+</section>
+
+<form
+  method="post"
+  class="billing-form"
+  data-billing-form
+  data-children-url="{{ url_for('web.catalogue_children') }}"
+  data-variant-url="{{ url_for('web.billing_variant') }}"
+>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="request_key" value="{{ request_key }}">
+  <input type="hidden" name="bill_items" value="{{ bill_items }}" data-bill-items>
+  <input type="hidden" name="tailoring_items" value="{{ tailoring_items }}" data-tailoring-items>
+  <input type="hidden" name="customer_id" value="{{ customer.id if customer else '' }}" data-billing-customer-id>
+  <input type="hidden" name="paid_was_edited" value="{{ 'true' if paid_was_supplied else 'false' }}" data-paid-was-edited>
+
+  <section class="card" aria-labelledby="billing-customer-heading">
+    <div class="section-heading"><div><h2 id="billing-customer-heading">1. Customer</h2><p class="section-note">Required for tailoring or any unpaid balance. A fully paid product-only bill may remain anonymous.</p></div></div>
+    {% if customer %}
+      <div class="selected-customer" data-selected-customer>
+        <div><span>Selected customer</span><strong>{{ customer.customer_number }} &middot; {{ customer.name }}</strong><span>{{ customer.primary_mobile }}</span></div>
+        <button type="submit" class="secondary small" name="action" value="clear_customer" formnovalidate>Clear customer</button>
+      </div>
+    {% endif %}
+    <div class="filter-grid">
+      <div class="field"><label for="billing-customer-search">Customer ID, name, or mobile</label><input id="billing-customer-search" type="search" name="customer_query" value="{{ customer_query }}" maxlength="120" autocomplete="off"></div>
+      <div class="form-actions"><button type="submit" class="secondary" name="action" value="search_customer" formnovalidate>Search customers</button><a class="button secondary" href="{{ url_for('web.customers', return_to='billing') }}">Add new customer</a></div>
+    </div>
+    {% if customer_matches %}<div class="customer-match-list" aria-label="Matching customers">{% for match in customer_matches %}<button type="submit" class="customer-match" name="action" value="select_customer:{{ match.id }}" formnovalidate><strong>{{ match.customer_number }} &middot; {{ match.name }}</strong><span>{{ match.primary_mobile }}</span></button>{% endfor %}</div>{% elif customer_query %}<p class="empty-copy">No customers match &ldquo;{{ customer_query }}&rdquo;.</p>{% endif %}
+  </section>
+
+  <section class="card" aria-labelledby="billing-selection-heading">
+    <div class="section-heading">
+      <div>
+        <h2 id="billing-selection-heading">2. Add products</h2>
+        <p class="section-note">Each list contains only records belonging to the selected parent.</p>
+      </div>
+    </div>
+    <div class="filter-grid">
+      <div class="field">
+        <label for="billing_product_id">Product</label>
+        <select id="billing_product_id" name="product_id" data-billing-filter="product">
+          <option value="">Choose product</option>
+          {% for item in catalogue.products %}
+            <option
+              value="{{ item.id }}"
+              data-classification="{{ item.classification }}"
+              data-unit="{{ item.unit or '' }}"
+              data-suggested-unit="{{ item.suggested_unit or '' }}"
+              {% if product_id == item.id %}selected{% endif %}
+            >{{ item.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field" data-billing-field="brand"{% if not selected_product %} hidden{% endif %}>
+        <label for="billing_brand_id">Brand</label>
+        <select id="billing_brand_id" name="brand_id" data-billing-filter="brand"{% if not selected_product %} disabled{% endif %}>
+          <option value="">Choose brand</option>
+          {% for item in brands %}<option value="{{ item.id }}"{% if brand_id == item.id %} selected{% endif %}>{{ item.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field" data-billing-field="article"{% if not (needs_article and selected_brand) %} hidden{% endif %}>
+        <label for="billing_article_id">Article</label>
+        <select id="billing_article_id" name="article_id" data-billing-filter="article"{% if not (needs_article and selected_brand) %} disabled{% endif %}>
+          <option value="">Choose article</option>
+          {% for item in articles %}<option value="{{ item.id }}"{% if article_id == item.id %} selected{% endif %}>{{ item.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field" data-billing-field="colour"{% if not (selected_brand and (not needs_article or selected_article)) %} hidden{% endif %}>
+        <label for="billing_colour_id">Colour</label>
+        <select id="billing_colour_id" name="colour_id" data-billing-filter="colour"{% if not (selected_brand and (not needs_article or selected_article)) %} disabled{% endif %}>
+          <option value="">Choose colour</option>
+          {% for item in colours %}<option value="{{ item.id }}"{% if colour_id == item.id %} selected{% endif %}>{{ item.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field" data-billing-field="size"{% if not (needs_size and selected_colour) %} hidden{% endif %}>
+        <label for="billing_size_id">Size</label>
+        <select id="billing_size_id" name="size_id" data-billing-filter="size"{% if not (needs_size and selected_colour) %} disabled{% endif %}>
+          <option value="">Choose size</option>
+          {% for item in sizes %}<option value="{{ item.id }}"{% if size_id == item.id %} selected{% endif %}>{{ item.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-actions" data-billing-fallback>
+        <button type="submit" class="secondary" name="action" value="open_selection" formnovalidate>Open selection</button>
+      </div>
+    </div>
+    <p class="form-hint" data-billing-status aria-live="polite">Dependent choices update automatically when JavaScript is available.</p>
+    <noscript><p class="form-hint">Choose one parent at a time and use Open selection to load the next level. Your bill draft is carried with the form.</p></noscript>
+  </section>
+
+  {% if selected_product and not selected_product.unit %}
+    <section class="card attention" data-billing-unit-warning>
+      <h2>Confirm this Product&rsquo;s stock unit first</h2>
+      <p>Billing is unavailable until the proposed {{ unit_labels[selected_product.suggested_unit] }} unit is confirmed in the catalogue.</p>
+      <a class="button secondary" href="{{ url_for('web.catalogue_page', product_id=product_id, _anchor='product-editor') }}">Review Product unit</a>
+    </section>
+  {% endif %}
+
+  <section
+    class="card variant-card"
+    data-billing-variant
+    data-variant-ready="{{ 'true' if selected_variant else 'false' }}"
+    data-variant-id="{{ selected_variant.id if selected_variant else '' }}"
+    data-product="{{ selected_variant.product if selected_variant else '' }}"
+    data-is-fabric="{{ 'true' if selected_variant and selected_variant.is_fabric else 'false' }}"
+    data-current-balance="{{ selected_variant.current_balance if selected_variant else '' }}"
+    data-unit="{{ selected_variant.unit if selected_variant else '' }}"
+    data-default-price="{{ selected_variant.default_selling_price if selected_variant and selected_variant.default_selling_price is not none else '' }}"
+    {% if not selected_variant %}hidden{% endif %}
+  >
+    <h3>Add the selected product</h3>
+    <p class="variant-description" data-variant-description>
+      {% if selected_variant %}
+        {{ selected_variant.product }} &middot; {{ selected_variant.brand }}{% if selected_variant.article %} &middot; {{ selected_variant.article }}{% endif %} &middot; {{ selected_variant.colour }}{% if selected_variant.size %} &middot; {{ selected_variant.size }}{% endif %}
+      {% endif %}
+    </p>
+    <div class="variant-facts">
+      <div><span>Stock unit</span><strong data-variant-unit>{{ unit_labels[selected_variant.unit] if selected_variant else '' }}</strong></div>
+      <div><span>Recorded balance</span><strong data-variant-balance{% if selected_variant and selected_variant.current_balance < 0 %} class="negative-value"{% endif %}>{{ selected_variant.current_balance|quantity if selected_variant else '' }}</strong></div>
+      <div><span>Default selling price</span><strong data-variant-default>{% if selected_variant and selected_variant.default_selling_price is not none %}PKR {{ selected_variant.default_selling_price|pkr }}{% else %}Not set{% endif %}</strong></div>
+    </div>
+
+    <div class="default-price-editor">
+      <div class="field">
+        <label for="default_price">Default selling price <span class="optional">PKR per whole unit</span></label>
+        <input id="default_price" name="default_price" value="{{ default_price }}" inputmode="decimal" autocomplete="off" placeholder="0.00" data-default-price>
+      </div>
+      <button type="submit" class="secondary" name="action" value="save_default" formnovalidate>Save default price</button>
+    </div>
+
+    <div class="field-row billing-line-fields">
+      <div class="field">
+        <label for="line_price">Selling price for this bill <span class="optional">PKR per whole unit</span></label>
+        <input id="line_price" name="line_price" value="{{ line_price }}" inputmode="decimal" autocomplete="off" placeholder="0.00" data-line-price>
+        <p class="form-hint">Changing this value affects this bill only.</p>
+      </div>
+      <div class="field">
+        <label for="line_quantity">Quantity</label>
+        <input id="line_quantity" name="line_quantity" value="{{ form.get('line_quantity', '') }}" inputmode="decimal" autocomplete="off" placeholder="{{ '0.000' if selected_variant and selected_variant.unit == 'metre' else '0' }}" data-line-quantity>
+        <p class="form-hint" data-line-quantity-hint>{% if selected_variant and selected_variant.unit == 'metre' %}Metres allow up to three decimal places.{% else %}Pairs and pieces require a whole number.{% endif %}</p>
+      </div>
+    </div>
+    <div class="alert warning-inline" data-negative-warning role="status" hidden></div>
+    <div class="form-actions">
+      <button type="button" class="primary" data-add-bill-line>Add to bill</button>
+      <noscript><button type="submit" class="primary" name="action" value="add_line">Add to bill</button></noscript>
+    </div>
+  </section>
+
+  {% if variant_error %}<div class="alert error" data-variant-error role="alert">{{ variant_error }}</div>{% else %}<div class="alert error" data-variant-error role="alert" hidden></div>{% endif %}
+
+  <section class="card tailoring-addition" aria-labelledby="tailoring-add-heading" data-tailoring-addition>
+    <div class="section-heading"><div><h2 id="tailoring-add-heading">3. Add tailoring</h2><p class="section-note">Tailoring requires a selected customer, saved measurements and one promised date for the complete tailoring order.</p></div></div>
+    <div class="filter-grid">
+      <div class="field"><label for="tailoring-category">Garment</label><select id="tailoring-category" name="tailoring_category" data-tailoring-refresh>
+        {% for category in tailoring_selection.categories %}<option value="{{ category }}"{% if tailoring_selection.category == category %} selected{% endif %}>{{ category }}</option>{% endfor %}
+      </select></div>
+      {% if tailoring_selection.category == 'Other / Custom Item' %}<div class="field"><label for="tailoring-custom-description">Custom item description</label><input id="tailoring-custom-description" name="tailoring_custom_description" value="{{ form.get('tailoring_custom_description', '') }}" maxlength="200" data-tailoring-custom-description></div>{% endif %}
+      <div class="form-actions" data-tailoring-fallback><button type="submit" class="secondary" name="action" value="open_tailoring" formnovalidate>Load tailoring details</button></div>
+    </div>
+    {% if not customer %}
+      <div class="alert attention">Select an existing customer above before adding tailoring.</div>
+    {% else %}
+      <div class="tailoring-readiness">
+        <div><span>Stitching rate</span>{% if tailoring_selection.category == 'Other / Custom Item' %}<strong>Manual price required</strong>{% elif tailoring_selection.rate %}<strong>PKR {{ tailoring_selection.rate.rate|pkr }} per piece</strong><small>Configured revision {{ tailoring_selection.rate.revision_number }}</small>{% else %}<strong class="negative-value">Not configured</strong><a href="{{ url_for('web.stitching_rates') }}">Configure Stitching Rates</a>{% endif %}</div>
+        <div><span>Measurements</span>{% if tailoring_selection.measurement %}<strong>Revision {{ tailoring_selection.measurement.revision_number }}</strong><small>Saved {{ tailoring_selection.measurement.created_at[:10] }}{% if tailoring_selection.measurement.custom_description %} &middot; {{ tailoring_selection.measurement.custom_description }}{% endif %}</small>{% else %}<strong class="negative-value">Missing matching measurements</strong><a href="{{ url_for('web.customer_measurements', customer_id=customer.id, category=tailoring_selection.category) }}">Add measurements</a>{% endif %}</div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="tailoring-quantity">Quantity <span class="optional">whole pieces</span></label><input id="tailoring-quantity" name="tailoring_quantity" value="{{ form.get('tailoring_quantity', '') }}" inputmode="numeric" placeholder="1"></div>
+        {% if tailoring_selection.category == 'Other / Custom Item' %}<div class="field"><label for="tailoring-price">Stitching price <span class="optional">PKR per piece</span></label><input id="tailoring-price" name="tailoring_price" value="{{ form.get('tailoring_price', '') }}" inputmode="decimal" placeholder="0.00"></div>{% endif %}
+      </div>
+      <div class="field"><label for="promised-date">Promised delivery date</label><input id="promised-date" type="date" name="promised_date" value="{{ promised_date }}" min="{{ today }}"></div>
+      <fieldset class="cloth-options" data-cloth-options data-alternate-selected="{{ 'true' if cloth_choice == 'customer' or cloth_choice[:8] == 'earlier:' else 'false' }}">
+        <legend data-cloth-question>{% if current_fabric_lines|length == 1 %}Fabric from this bill{% elif current_fabric_lines|length > 1 %}Which fabric is being used for this garment?{% else %}Cloth source{% endif %}</legend>
+        <div class="cloth-current-options" data-current-fabric-options>
+          {% for item in current_fabric_lines %}
+            <label class="cloth-option" data-current-fabric-option>
+              <input type="radio" name="cloth_choice" value="current:{{ item.line_number }}"{% if cloth_choice == 'current:' ~ item.line_number|string %} checked{% endif %}>
+              <span><strong>{{ item.description }}</strong><small>{{ item.quantity|quantity }} {{ unit_labels[item.unit] }}</small></span>
+            </label>
+          {% endfor %}
+        </div>
+        <button type="button" class="secondary small cloth-different-toggle" data-use-different-cloth hidden>Use a different cloth source</button>
+        <div class="cloth-alternatives" data-cloth-alternatives>
+          {% if current_fabric_lines %}<p class="section-note">Other cloth sources</p>{% endif %}
+          <label class="cloth-option"><input type="radio" name="cloth_choice" value="customer"{% if cloth_choice == 'customer' %} checked{% endif %}> <span><strong>Customer-provided cloth</strong></span></label>
+          {% for item in earlier_sale_items %}
+            <label class="cloth-option" data-earlier-fabric-option><input type="radio" name="cloth_choice" value="earlier:{{ item.id }}"{% if cloth_choice == 'earlier:' ~ item.id|string %} checked{% endif %}> <span><strong>Fabric purchased in {{ item.bill_number }}</strong><small>{{ item.product }} &middot; {{ item.brand }}{% if item.article %} &middot; {{ item.article }}{% endif %} &middot; {{ item.colour }}{% if item.size %} &middot; {{ item.size }}{% endif %} &middot; {{ item.quantity|quantity }} {{ unit_labels[item.unit] }}</small></span></label>
+          {% endfor %}
+        </div>
+        <p class="form-hint">Linking sold Fabric identifies the cloth used and never deducts stock again.</p>
+      </fieldset>
+      <div class="field"><label for="order-notes">Tailoring order notes <span class="optional">optional; shared by this order</span></label><textarea id="order-notes" name="order_notes" maxlength="2000" rows="3">{{ order_notes }}</textarea></div>
+      <div class="form-actions"><button type="submit" class="primary" name="action" value="add_tailoring"{% if not tailoring_selection.measurement or (tailoring_selection.category != 'Other / Custom Item' and not tailoring_selection.rate) %} disabled{% endif %}>Add tailoring to bill</button></div>
+    {% endif %}
+  </section>
+
+  <section id="bill-review" class="card table-card" aria-labelledby="bill-lines-heading">
+    <div class="section-heading">
+      <div>
+        <h2 id="bill-lines-heading">4. Combined bill</h2>
+        <p class="section-note">Items can be removed until the sale is finalized.</p>
+      </div>
+      <strong data-bill-line-count>{{ bill_line_count }} item{{ '' if bill_line_count == 1 else 's' }}</strong>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Type</th><th>Item</th><th class="number">Quantity</th><th>Unit / rate</th><th class="number">Unit price</th><th class="number">Line total</th><th>Cloth / promised date</th><th><span class="visually-hidden">Action</span></th></tr></thead>
+        <tbody data-bill-lines>
+          {% for item in quoted_items %}
+            <tr data-bill-line data-line-type="product" data-product-line-number="{{ item.line_number }}" data-is-fabric="{{ 'true' if item.is_fabric else 'false' }}" data-summary-description="{{ item.description }}" data-summary-quantity="{{ item.quantity|quantity }} {{ unit_labels[item.unit] }}" data-line-total="{{ item.line_total }}">
+              <td>Product</td>
+              <td>
+                <strong>{{ item.product }} &middot; {{ item.brand }}{% if item.article %} &middot; {{ item.article }}{% endif %} &middot; {{ item.colour }}{% if item.size %} &middot; {{ item.size }}{% endif %}</strong>
+                {% if item.makes_negative %}<span class="negative-note">Recorded balance after this draft line: {{ item.projected_balance|quantity }} {{ unit_labels[item.unit] }}. Sale remains allowed.</span>{% endif %}
+              </td>
+              <td class="number">{{ item.quantity|quantity }} {{ unit_labels[item.unit] }}</td>
+              <td>{{ unit_labels[item.unit] }}</td>
+              <td class="number">PKR {{ item.unit_price|pkr }}</td>
+              <td class="number">PKR {{ item.line_total|pkr }}</td>
+              <td><span class="empty-copy">Not applicable</span></td>
+              <td><button type="submit" class="secondary small" name="action" value="remove_line:{{ loop.index0 }}" formnovalidate data-remove-bill-line="{{ loop.index0 }}">Remove</button></td>
+            </tr>
+          {% endfor %}
+          {% for item in quoted_tailoring %}<tr data-bill-line data-line-type="tailoring" data-summary-description="Stitching &middot; {{ item.description }}" data-summary-quantity="{{ item.quantity|quantity }} piece{{ '' if item.quantity == 1000 else 's' }}" data-line-total="{{ item.line_total }}"><td>Tailoring</td><td><strong>{{ item.description }}</strong><span class="form-hint">Measurements revision {{ item.measurement_revision_number }}</span></td><td class="number">{{ item.quantity|quantity }} piece{{ '' if item.quantity == 1000 else 's' }}</td><td>Stitching / piece</td><td class="number">PKR {{ item.stitching_rate|pkr }}</td><td class="number">PKR {{ item.line_total|pkr }}</td><td>{{ 'Purchased from shop' if item.cloth_source == 'shop' else 'Customer-provided' }}<br><span class="form-hint">{{ item.cloth_link_label }}</span><br>Promised: {{ item.promised_date }}</td><td><button type="submit" class="secondary small" name="action" value="remove_tailoring:{{ loop.index0 }}" formnovalidate>Remove</button></td></tr>{% endfor %}
+          {% if not quoted_items and not quoted_tailoring %}<tr data-empty-bill><td colspan="8" class="empty-state">No items have been added. An empty bill cannot be finalized.</td></tr>{% endif %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card billing-checkout" aria-labelledby="bill-totals-heading">
+    <h2 id="bill-totals-heading">5. Complete the bill</h2>
+    <div class="billing-checkout-grid">
+      <div class="stacked-form">
+        <div class="field">
+          <label for="discount">Bill discount <span class="optional">fixed PKR amount</span></label>
+          <input id="discount" name="discount" value="{{ discount_text }}" inputmode="decimal" autocomplete="off" data-bill-discount>
+        </div>
+        <div class="field">
+          <label for="paid_amount">Amount paid <span class="optional">PKR</span></label>
+          <input id="paid_amount" name="paid_amount" value="{{ paid_text }}" inputmode="decimal" autocomplete="off" data-bill-paid data-paid-supplied="{{ 'true' if paid_was_supplied else 'false' }}">
+        </div>
+        <p class="form-hint">Select an existing customer above when tailoring is present or the remaining balance is greater than zero.</p>
+      </div>
+      <dl class="bill-totals" aria-live="polite">
+        <div><dt>Subtotal</dt><dd>PKR <span data-total-subtotal>{{ subtotal|pkr }}</span></dd></div>
+        <div><dt>Discount</dt><dd>PKR <span data-total-discount>{{ preview_discount|pkr }}</span></dd></div>
+        <div class="grand"><dt>Grand total</dt><dd>PKR <span data-total-grand>{{ grand_total|pkr }}</span></dd></div>
+        <div><dt>Paid</dt><dd>PKR <span data-total-paid>{{ preview_paid|pkr }}</span></dd></div>
+        <div><dt>Remaining</dt><dd>PKR <span data-total-remaining>{{ remaining_balance|pkr }}</span></dd></div>
+      </dl>
+    </div>
+    <div class="form-actions finalize-actions">
+      <button type="submit" class="primary" name="action" value="finalize" data-finalize-sale>Finalize sale</button>
+      <span class="form-hint">The server recalculates all amounts and saves the bill with its stock movements once.</span>
+    </div>
+  </section>
+</form>
+{% endblock %}

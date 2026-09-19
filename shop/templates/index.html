@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Current stock · Shop inventory{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">Inventory</p>
+    <h1>Current stock</h1>
+    <p>Balances are calculated from saved stock movements for each valid, complete product chain.</p>
+  </div>
+  <a class="button primary" href="{{ url_for('web.stock') }}">Add stock</a>
+</div>
+
+{% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+
+<section class="card" aria-labelledby="filter-heading">
+  <h2 id="filter-heading">Filter stock</h2>
+  <form method="get" class="filter-grid" data-stock-filter-form data-children-url="{{ url_for('web.catalogue_children') }}">
+    <div class="field">
+      <label for="product_id">Product</label>
+      <select id="product_id" name="product_id" data-filter="product">
+        <option value="">All products</option>
+        {% for item in catalogue.products %}
+          <option value="{{ item.id }}" data-classification="{{ item.classification }}"{% if product_id == item.id %} selected{% endif %}>{{ item.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field" data-filter-field="brand"{% if not selected_product %} hidden{% endif %}>
+      <label for="brand_id">Brand</label>
+      <select id="brand_id" name="brand_id" data-filter="brand"{% if not selected_product %} disabled{% endif %}>
+        <option value="">All brands</option>
+        {% for item in brands %}<option value="{{ item.id }}"{% if brand_id == item.id %} selected{% endif %}>{{ item.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field" data-filter-field="article"{% if not (selected_product and selected_product.classification == 'article_colour' and selected_brand) %} hidden{% endif %}>
+      <label for="article_id">Article</label>
+      <select id="article_id" name="article_id" data-filter="article"{% if not (selected_product and selected_product.classification == 'article_colour' and selected_brand) %} disabled{% endif %}>
+        <option value="">All articles</option>
+        {% for item in articles %}<option value="{{ item.id }}"{% if article_id == item.id %} selected{% endif %}>{{ item.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field" data-filter-field="colour"{% if not (selected_brand and (selected_product.classification != 'article_colour' or selected_article)) %} hidden{% endif %}>
+      <label for="colour_id">Colour</label>
+      <select id="colour_id" name="colour_id" data-filter="colour"{% if not (selected_brand and (selected_product.classification != 'article_colour' or selected_article)) %} disabled{% endif %}>
+        <option value="">All colours</option>
+        {% for item in colours %}<option value="{{ item.id }}"{% if colour_id == item.id %} selected{% endif %}>{{ item.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field" data-filter-field="size"{% if not (selected_product and selected_product.classification == 'colour_size' and selected_colour) %} hidden{% endif %}>
+      <label for="size_id">Size</label>
+      <select id="size_id" name="size_id" data-filter="size"{% if not (selected_product and selected_product.classification == 'colour_size' and selected_colour) %} disabled{% endif %}>
+        <option value="">All sizes</option>
+        {% for item in sizes %}<option value="{{ item.id }}"{% if size_id == item.id %} selected{% endif %}>{{ item.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="primary">Apply filters</button>
+      <a class="button secondary" href="{{ url_for('web.index') }}">Clear</a>
+    </div>
+  </form>
+  <p class="form-hint" data-filter-status aria-live="polite">Apply filters to display stock for the selected values.</p>
+  <noscript><p class="form-hint">JavaScript is unavailable. Choose one level, apply the filters to load its children, then continue.</p></noscript>
+</section>
+
+{% if rows %}
+  <section aria-labelledby="totals-heading">
+    <h2 id="totals-heading">Filtered totals</h2>
+    <p class="section-note">Different units stay separate; they are never added into one quantity.</p>
+    <div class="totals">
+      {% for unit in ['metre', 'pair', 'piece'] %}
+        {% if totals.get(unit) is not none %}
+          <div class="total-card"><span>{{ unit_labels[unit]|title }}</span><strong>{{ totals[unit]|quantity }}</strong></div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </section>
+{% endif %}
+
+<section class="card table-card" aria-labelledby="stock-table-heading">
+  <div class="section-heading">
+    <h2 id="stock-table-heading">Stock combinations</h2>
+    <span>{{ rows|length }} shown</span>
+  </div>
+  {% if rows %}
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Product</th><th>Brand</th><th>Exact variant</th><th class="number">Quantity</th><th><span class="visually-hidden">Action</span></th></tr></thead>
+        <tbody>
+        {% for row in rows %}
+          <tr>
+            <td>{{ row.product }}</td>
+            <td>{{ row.brand }}</td>
+            <td>
+              {% if row.article %}<span>{{ row.article }}</span> <span aria-hidden="true">·</span> {% endif %}
+              <span>{{ row.colour }}</span>{% if row.size %} <span aria-hidden="true">·</span> <span>{{ row.size }}</span>{% endif %}
+            </td>
+            <td class="number"><strong>{{ row.quantity|quantity }}</strong> {{ unit_labels[row.unit] }}</td>
+            <td><a href="{{ url_for('web.history', variant_id=row.id) }}">History</a></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <h3>No stock combinations found</h3>
+      <p>Complete a product’s parent-child records, then save stock for that exact chain.</p>
+      <a class="button primary" href="{{ url_for('web.stock') }}">Add stock</a>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

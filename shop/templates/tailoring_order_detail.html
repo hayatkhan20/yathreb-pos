@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}{{ order.tailoring_number }} &middot; Tailoring{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">Finalized tailoring record</p><h1>{{ order.tailoring_number }}</h1><p>Saved measurement and financial snapshots are read-only.</p></div><div class="form-actions"><a class="button primary" href="{{ url_for('web.sale_detail', sale_id=order.sale_id) }}">Open bill / receipt</a><a class="button secondary" href="{{ url_for('web.tailoring_orders') }}">Tailoring orders</a></div></div>
+<section class="card"><div class="section-heading"><h2>Order information</h2><span class="status-badge">{{ order.status }}</span></div><dl class="record-grid">
+  <div><dt>Tailoring number</dt><dd>{{ order.tailoring_number }}</dd></div><div><dt>Bill number</dt><dd>{{ order.bill_number }}</dd></div>
+  <div><dt>Customer</dt><dd><a href="{{ url_for('web.customer_detail', customer_id=order.customer_id) }}">{{ order.customer_number }} &middot; {{ order.customer_name }}</a><br>{{ order.customer_mobile }}</dd></div>
+  <div><dt>Order date</dt><dd>{{ order.order_date }}</dd></div><div><dt>Promised delivery</dt><dd>{{ order.promised_date }}</dd></div>
+  <div class="record-wide"><dt>Order notes</dt><dd class="preserve-lines">{{ order.notes or 'No order notes recorded.' }}</dd></div>
+</dl></section>
+<section class="card"><h2>Financial snapshot</h2><dl class="bill-totals"><div><dt>Bill subtotal</dt><dd>PKR {{ order.subtotal|pkr }}</dd></div><div><dt>Discount</dt><dd>PKR {{ order.discount|pkr }}</dd></div><div class="grand"><dt>Grand total</dt><dd>PKR {{ order.grand_total|pkr }}</dd></div><div><dt>Initial paid / advance</dt><dd>PKR {{ order.paid_amount|pkr }}</dd></div><div><dt>Original remaining</dt><dd>PKR {{ order.remaining_balance|pkr }}</dd></div></dl></section>
+<section class="card" aria-labelledby="garment-items-heading"><h2 id="garment-items-heading">Garment items</h2><div class="tailoring-item-list">
+{% for item in order["items"] %}<article class="tailoring-record-item"><div class="section-heading"><h3>{{ item.custom_description or item.garment_category }}</h3><strong>PKR {{ item.line_total|pkr }}</strong></div><dl class="record-grid">
+  <div><dt>Quantity</dt><dd>{{ item.quantity|quantity }} pieces</dd></div><div><dt>Stitching rate</dt><dd>PKR {{ item.stitching_rate|pkr }} per piece</dd></div>
+  <div><dt>Cloth source</dt><dd>{{ 'Purchased from shop' if item.cloth_source == 'shop' else 'Customer-provided' }}</dd></div>
+  <div><dt>Linked product</dt><dd>{% if item.source_sale_item_id %}{{ item.source_bill_number }} &middot; {{ item.source_product }} &middot; {{ item.source_brand }}{% if item.source_article %} &middot; {{ item.source_article }}{% endif %} &middot; {{ item.source_colour }}{% if item.source_size %} &middot; {{ item.source_size }}{% endif %}{% else %}Not applicable{% endif %}</dd></div>
+  <div><dt>Measurement revision</dt><dd>Revision {{ item.measurement_revision_number }} &middot; {{ item.measurement_unit }}</dd></div><div><dt>Measurement note</dt><dd class="preserve-lines">{{ item.measurement_notes or 'No note recorded.' }}</dd></div>
+</dl><details class="history-panel"><summary><strong>Immutable measurement snapshot</strong><span>View details</span></summary><dl class="record-grid">{% for label, value in item["measurements"].items() %}<div><dt>{{ label }}</dt><dd>{{ value|quantity }} inches</dd></div>{% endfor %}</dl>{% if item["styles"] %}<ul class="plain-list">{% for label, selected in item["styles"].items() %}<li><strong>{{ label }}:</strong> {{ 'Yes' if selected else 'No' }}</li>{% endfor %}</ul>{% endif %}</details></article>{% endfor %}
+</div></section>
+{% endblock %}

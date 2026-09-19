@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Stitching Rates &middot; Tailoring{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">Tailoring settings</p><h1>Stitching Rates</h1><p>Each save appends a new effective rate revision. Earlier rates and finalized order snapshots remain unchanged.</p></div></div>
+{% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+{% if notice %}<div class="alert success" role="status">{{ notice }}</div>{% endif %}
+<div class="alert attention" role="note"><strong>Other / Custom Item has no default rate.</strong> Its price is entered when its tailoring order is created.</div>
+<section class="card table-card" aria-labelledby="current-rates-heading">
+  <h2 id="current-rates-heading">Current default rates</h2>
+  <div class="table-wrap"><table><thead><tr><th>Garment</th><th>Current rate</th><th>New PKR rate</th></tr></thead><tbody>
+  {% for category in categories %}<tr>
+    <td><strong>{{ category }}</strong></td>
+    <td>{% if category in current %}PKR {{ current[category].rate|pkr }}{% else %}<span class="not-configured">Not configured</span>{% endif %}</td>
+    <td><form method="post" action="{{ url_for('web.stitching_rates') }}" class="inline-form rate-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="category" value="{{ category }}">
+      <label class="visually-hidden" for="rate-{{ loop.index0 }}">New rate for {{ category }}</label><input id="rate-{{ loop.index0 }}" name="rate" value="{% if error and entered_category == category %}{{ entered_rate }}{% endif %}" placeholder="0.00" inputmode="decimal" required>
+      <button type="submit" class="primary small">Save new rate</button>
+    </form></td>
+  </tr>{% endfor %}
+  </tbody></table></div>
+</section>
+<section id="rate-history" class="card" aria-labelledby="rate-history-heading">
+  <h2 id="rate-history-heading">Rate history</h2>
+  <div class="rate-history-grid">{% for category in categories %}<details class="history-panel"><summary><strong>{{ category }}</strong><span>{{ histories[category]|length }} revision{% if histories[category]|length != 1 %}s{% endif %}</span></summary>
+    {% if histories[category] %}<ol class="plain-list revision-list">{% for rate in histories[category] %}<li><strong>Revision {{ rate.revision_number }}:</strong> PKR {{ rate.rate|pkr }} <time datetime="{{ rate.created_at }}">&mdash; {{ rate.created_at[:10] }} {{ rate.created_at[11:19] }} UTC</time></li>{% endfor %}</ol>{% else %}<p class="empty-copy">No rate revisions saved.</p>{% endif %}
+  </details>{% endfor %}</div>
+</section>
+{% endblock %}

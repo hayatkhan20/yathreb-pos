@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Measurements for {{ customer.name }} &middot; Tailoring{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div><p class="eyebrow">{{ customer.customer_number }} &middot; Tailoring</p><h1>Measurements for {{ customer.name }}</h1><p>Choose a standard template or keep custom work separate.</p></div>
+  <a class="button secondary" href="{{ url_for('web.customer_detail', customer_id=customer.id) }}">Customer details</a>
+</div>
+{% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+{% if notice %}<div class="alert success" role="status">{{ notice }}</div>{% endif %}
+
+<section class="card" aria-labelledby="template-heading">
+  <h2 id="template-heading">Measurement type</h2>
+  <form method="get" action="{{ url_for('web.customer_measurements', customer_id=customer.id) }}" class="filter-grid" data-measurement-category-form>
+    <div class="field"><label for="measurement-category">Garment template</label><select id="measurement-category" name="category" data-measurement-category>
+      {% for name in templates %}<option value="{{ name }}"{% if category == name %} selected{% endif %}>{{ name }}</option>{% endfor %}
+      <option value="{{ custom_category }}"{% if category == custom_category %} selected{% endif %}>{{ custom_category }}</option>
+    </select></div>
+    <div class="form-actions" data-measurement-category-fallback><button type="submit" class="secondary">Open template</button></div>
+  </form>
+</section>
+
+<section class="card" aria-labelledby="measurement-form-heading">
+  <div class="section-heading"><div><h2 id="measurement-form-heading">{{ category }}</h2>{% if current %}<span>Latest saved revision: {{ current.revision_number }}</span>{% else %}<span>No saved revision yet</span>{% endif %}</div><span>Unit: inches</span></div>
+  <p class="section-note">Saving creates a new revision. It does not overwrite this customer&rsquo;s measurement history.</p>
+  <form method="post" action="{{ url_for('web.customer_measurements', customer_id=customer.id) }}" class="stacked-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="category" value="{{ category }}">
+    {% if category in templates %}
+      <fieldset><legend>Numeric measurements</legend><div class="measurement-grid">
+        {% for label in templates[category].measurements %}<div class="field"><label for="measurement-{{ loop.index0 }}">{{ label }} (inches)</label><input id="measurement-{{ loop.index0 }}" name="measurement_{{ loop.index0 }}" value="{{ values.get(label, '') }}" type="number" min="0.001" max="10000" step="0.001" inputmode="decimal" required></div>{% endfor %}
+      </div></fieldset>
+      <fieldset><legend>Style details</legend><div class="checkbox-grid">
+        {% for label in templates[category].styles %}<label class="checkbox-field" for="style-{{ loop.index0 }}"><input id="style-{{ loop.index0 }}" type="checkbox" name="style_{{ loop.index0 }}" value="true"{% if style_values.get(label, false) %} checked{% endif %}> <span>{{ label }}</span></label>{% endfor %}
+      </div></fieldset>
+    {% else %}
+      <div class="field"><label for="custom-description">Custom item description</label><input id="custom-description" name="custom_description" value="{{ custom_description }}" maxlength="200" required></div>
+      <fieldset><legend>Flexible measurements</legend><p class="section-note">Add up to 10 unique measurement names. Every value must be a positive decimal number of inches.</p>
+        <div class="custom-measurement-list" data-custom-measurements>
+          {% for label, amount in custom_rows %}<div class="custom-measurement-row" data-custom-measurement-row>
+            <div class="field"><label for="custom-name-{{ loop.index0 }}">Measurement name</label><input id="custom-name-{{ loop.index0 }}" name="custom_name" value="{{ label }}" maxlength="80" required></div>
+            <div class="field"><label for="custom-value-{{ loop.index0 }}">Value (inches)</label><input id="custom-value-{{ loop.index0 }}" name="custom_value" value="{{ amount }}" type="number" min="0.001" max="10000" step="0.001" inputmode="decimal" required></div>
+            <button type="button" class="secondary small" data-remove-custom-measurement>Remove</button>
+          </div>{% endfor %}
+        </div>
+        <button type="button" class="secondary small" data-add-custom-measurement>Add measurement</button>
+      </fieldset>
+    {% endif %}
+    <div class="field"><label for="measurement-notes">Note <span class="optional">optional</span></label><textarea id="measurement-notes" name="notes" maxlength="1000" rows="4">{{ notes }}</textarea></div>
+    <div class="form-actions"><button type="submit" class="primary">Save new revision</button></div>
+  </form>
+</section>
+
+<section class="card table-card" aria-labelledby="revision-history-heading">
+  <div class="section-heading"><h2 id="revision-history-heading">{{ category }} history</h2><span>Newest first</span></div>
+  {% if revisions %}<div class="table-wrap"><table><thead><tr><th>Revision</th><th>Saved date and time</th><th>Description</th><th>Record</th></tr></thead><tbody>
+    {% for revision in revisions %}<tr id="revision-{{ revision.id }}"><td>{{ revision.revision_number }}</td><td><time datetime="{{ revision.created_at }}">{{ revision.created_at[:10] }} {{ revision.created_at[11:19] }} UTC</time></td><td>{{ revision.custom_description or revision.garment_category }}</td><td><a href="{{ url_for('web.measurement_revision', customer_id=customer.id, revision_id=revision.id) }}">View</a></td></tr>{% endfor %}
+  </tbody></table></div>{% else %}<p class="empty-copy">No revisions have been saved for this measurement type.</p>{% endif %}
+</section>
+{% endblock %}

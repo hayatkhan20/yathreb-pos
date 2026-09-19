@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}{{ sale.bill_number }} &middot; Finalized bill{% endblock %}
+{% block body_class %}receipt-view{% endblock %}
+{% block content %}
+<div class="page-heading receipt-screen-heading">
+  <div>
+    <p class="eyebrow">Finalized sale</p>
+    <h1>{{ sale.bill_number }}</h1>
+    <p>This saved bill is immutable. Viewing or printing it does not create another sale or stock movement.</p>
+  </div>
+  <div class="form-actions">
+    <a class="button secondary" href="{{ url_for('web.sales_history') }}">Sales history</a>
+    {% if sale.tailoring_order_id %}<a class="button secondary" href="{{ url_for('web.tailoring_order_detail', tailoring_order_id=sale.tailoring_order_id) }}">Tailoring record</a>{% endif %}
+    <button type="button" class="primary" data-print-receipt>Print receipt</button>
+  </div>
+</div>
+
+<section class="card receipt-screen-heading" aria-labelledby="payment-status-heading">
+  <div class="section-heading"><div><h2 id="payment-status-heading">Current payment status</h2><p class="section-note">The printed sale receipt below keeps the original finalized totals unchanged.</p></div>{% if sale.customer_id and sale.outstanding_balance > 0 %}<a class="button primary" href="{{ url_for('web.payment_new', customer_id=sale.customer_id, sale_id=sale.id) }}">Record later payment</a>{% endif %}</div>
+  <dl class="record-grid"><div><dt>Original grand total</dt><dd>PKR {{ sale.grand_total|pkr }}</dd></div><div><dt>Paid at finalization</dt><dd>PKR {{ sale.paid_amount|pkr }}</dd></div><div><dt>Remaining at finalization</dt><dd>PKR {{ sale.remaining_balance|pkr }}</dd></div><div><dt>Later payments</dt><dd>PKR {{ sale.later_payments|pkr }}</dd></div><div><dt>Current outstanding</dt><dd class="{% if sale.outstanding_balance > 0 %}negative-value{% endif %}">PKR {{ sale.outstanding_balance|pkr }}</dd></div></dl>
+  {% if sale["payments"] %}<div class="table-wrap"><table><thead><tr><th>Payment</th><th>Date and time</th><th>Bill</th><th class="number">Amount</th><th>Receipt</th></tr></thead><tbody>{% for payment in sale["payments"] %}<tr><td>{{ payment.payment_number }}</td><td><time datetime="{{ payment.created_at }}">{{ payment.created_at[:10] }} {{ payment.created_at[11:19] }} UTC</time></td><td>{{ sale.bill_number }}</td><td class="number">PKR {{ payment.amount|pkr }}</td><td><a href="{{ url_for('web.payment_receipt', payment_id=payment.id) }}">Open</a></td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="empty-copy">No later payments have been recorded for this bill.</p>{% endif %}
+</section>
+
+<section class="receipt" data-receipt aria-label="80 millimetre receipt for {{ sale.bill_number }}">
+  <header class="receipt-header">
+    <h2>Yathreb Fabrics and Tailors</h2>
+    <p>L.G. Floor Below Bank Al Habib, Faisal Heights,<br>B-Block Markaz, B-17 Islamabad</p>
+    <p>03365314722<br>03009898997</p>
+  </header>
+
+  <div class="receipt-meta">
+    <p><span>Bill</span><strong>{{ sale.bill_number }}</strong></p>
+    {% if sale.tailoring_number %}<p><span>Tailoring</span><strong>{{ sale.tailoring_number }}</strong></p>{% endif %}
+    <p><span>Date/time</span><time datetime="{{ sale.created_at }}">{{ sale.created_at[:10] }} {{ sale.created_at[11:19] }} UTC</time></p>
+    {% if sale.customer_number %}<p><span>Customer ID</span><strong>{{ sale.customer_number }}</strong></p>{% endif %}
+    {% if sale.customer_name %}<p><span>Customer</span><strong>{{ sale.customer_name }}</strong></p>{% endif %}
+    {% if sale.customer_mobile %}<p><span>Mobile</span><strong>{{ sale.customer_mobile }}</strong></p>{% endif %}
+  </div>
+
+  <div class="receipt-items">
+    {% for item in sale["items"] %}
+      <article class="receipt-item">
+        <h3>{{ item.product }} &rsaquo; {{ item.brand }}{% if item.article %} &rsaquo; {{ item.article }}{% endif %} &rsaquo; {{ item.colour }}{% if item.size %} &rsaquo; {{ item.size }}{% endif %}</h3>
+        <div class="receipt-line-values">
+          <span>{{ item.quantity|quantity }} {{ unit_labels[item.unit] }} &times; PKR {{ item.unit_price|pkr }}</span>
+          <strong>PKR {{ item.line_total|pkr }}</strong>
+        </div>
+      </article>
+    {% endfor %}
+    {% for item in sale["tailoring_items"] %}
+      <article class="receipt-item receipt-tailoring-item">
+        <h3>Stitching &rsaquo; {{ item.custom_description or item.garment_category }}</h3>
+        <div class="receipt-line-values"><span>{{ item.quantity|quantity }} piece{{ '' if item.quantity == 1000 else 's' }} &times; PKR {{ item.stitching_rate|pkr }}</span><strong>PKR {{ item.line_total|pkr }}</strong></div>
+        <p>{{ 'Purchased from shop' if item.cloth_source == 'shop' else 'Customer-provided cloth' }}</p>
+        {% if sale.tailoring_order %}<p>Promised delivery: {{ sale.tailoring_order.promised_date }}</p>{% endif %}
+      </article>
+    {% endfor %}
+  </div>
+
+  <dl class="receipt-totals">
+    <div><dt>Subtotal</dt><dd>PKR {{ sale.subtotal|pkr }}</dd></div>
+    <div><dt>Discount</dt><dd>PKR {{ sale.discount|pkr }}</dd></div>
+    <div class="receipt-grand"><dt>Grand total</dt><dd>PKR {{ sale.grand_total|pkr }}</dd></div>
+    <div><dt>{% if sale.tailoring_number %}Initial paid / advance{% else %}Paid{% endif %}</dt><dd>PKR {{ sale.paid_amount|pkr }}</dd></div>
+    <div><dt>Remaining</dt><dd>PKR {{ sale.remaining_balance|pkr }}</dd></div>
+  </dl>
+
+  <footer class="receipt-footer">Thank you for shopping</footer>
+</section>
+{% endblock %}

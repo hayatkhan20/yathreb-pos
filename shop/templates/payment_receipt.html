@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ payment.payment_number }} &middot; Payment receipt{% endblock %}
+{% block body_class %}receipt-view payment-receipt-view{% endblock %}
+{% block content %}
+<div class="page-heading receipt-screen-heading"><div><p class="eyebrow">Payment acknowledgement</p><h1>{{ payment.payment_number }}</h1><p>This immutable payment record is separate from the finalized sale.</p></div><div class="form-actions"><a class="button secondary" href="{{ url_for('web.sale_detail', sale_id=payment.sale_id) }}">Open bill</a><a class="button secondary" href="{{ url_for('web.customer_detail', customer_id=payment.customer_id) }}">Customer account</a><button type="button" class="primary" data-print-receipt>Print payment receipt</button></div></div>
+<section class="receipt payment-receipt" data-receipt aria-label="80 millimetre payment receipt for {{ payment.payment_number }}">
+  <header class="receipt-header"><h2>Yathreb Fabrics and Tailors</h2><p>L.G. Floor Below Bank Al Habib, Faisal Heights,<br>B-block Markaz, B-17 Islamabad</p><p>03365314722<br>03009898997</p></header>
+  <div class="receipt-meta"><p><span>Payment</span><strong>{{ payment.payment_number }}</strong></p><p><span>Date/time</span><time datetime="{{ payment.created_at }}">{{ payment.created_at[:10] }} {{ payment.created_at[11:19] }} UTC</time></p><p><span>Customer ID</span><strong>{{ payment.customer_number }}</strong></p><p><span>Customer</span><strong>{{ payment.customer_name }}</strong></p><p><span>Mobile</span><strong>{{ payment.customer_mobile }}</strong></p><p><span>Related bill</span><strong>{{ payment.bill_number }}</strong></p></div>
+  <dl class="receipt-totals"><div class="receipt-grand"><dt>Amount received</dt><dd>PKR {{ payment.amount|pkr }}</dd></div><div><dt>Outstanding before</dt><dd>PKR {{ payment.outstanding_before|pkr }}</dd></div><div><dt>Outstanding after</dt><dd>PKR {{ payment.outstanding_after|pkr }}</dd></div></dl>
+  <footer class="receipt-footer">Thank you</footer>
+</section>
+{% endblock %}

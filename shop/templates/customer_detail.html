@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ customer.customer_number }} &middot; Customers{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div><p class="eyebrow">{{ customer.customer_number }}</p><h1>{{ customer.name }}</h1><p>Customer identity and current account information.</p></div>
+  <div class="form-actions">
+    <a class="button primary" href="{{ url_for('web.customer_measurements', customer_id=customer.id) }}">Measurements</a>
+    <a class="button secondary" href="{{ url_for('web.customer_edit', customer_id=customer.id) }}">Edit contact details</a>
+  </div>
+</div>
+{% if notice %}<div class="alert success" role="status">{{ notice }}</div>{% endif %}
+<section class="card" aria-labelledby="contact-heading">
+  <div class="section-heading"><h2 id="contact-heading">Customer details</h2><strong class="{% if account.total_outstanding > 0 %}negative-value{% endif %}">Outstanding: PKR {{ account.total_outstanding|pkr }}</strong></div>
+  <dl class="record-grid">
+    <div><dt>Customer ID</dt><dd>{{ customer.customer_number }}</dd></div>
+    <div><dt>Primary mobile</dt><dd>{{ customer.primary_mobile }}</dd></div>
+    <div><dt>Alternate mobile</dt><dd>{{ customer.alternate_mobile or 'Not recorded' }}</dd></div>
+    <div><dt>Address</dt><dd>{{ customer.address or 'Not recorded' }}</dd></div>
+    <div class="record-wide"><dt>Notes</dt><dd class="preserve-lines">{{ customer.notes or 'Not recorded' }}</dd></div>
+  </dl>
+</section>
+<section aria-labelledby="account-summary-heading">
+  <div class="section-heading"><h2 id="account-summary-heading">Account summary</h2><a href="{{ url_for('web.customer_balances') }}">Customer Balances</a></div>
+  <div class="totals account-summary">
+    <div class="total-card"><span>Total billed</span><strong>PKR {{ account.total_billed|pkr }}</strong></div>
+    <div class="total-card"><span>Total paid</span><strong>PKR {{ account.total_paid|pkr }}</strong></div>
+    <div class="total-card"><span>Total outstanding</span><strong class="{% if account.total_outstanding > 0 %}negative-value{% endif %}">PKR {{ account.total_outstanding|pkr }}</strong></div>
+  </div>
+</section>
+<section class="card table-card" aria-labelledby="customer-bills-heading">
+  <div class="section-heading"><div><h2 id="customer-bills-heading">Customer-linked bills</h2><p class="section-note">Remaining at finalization is historical. Current outstanding reflects immutable later payments.</p></div><span>{{ account.bills|length }} bill{% if account.bills|length != 1 %}s{% endif %}</span></div>
+  {% if account.bills %}<div class="table-wrap"><table><thead><tr><th>Bill</th><th>Date</th><th class="number">Original total</th><th class="number">Paid at finalization</th><th class="number">Later payments</th><th class="number">Remaining at finalization</th><th class="number">Current outstanding</th><th>Actions</th></tr></thead><tbody>
+  {% for bill in account.bills %}<tr><td><strong>{{ bill.bill_number }}</strong>{% if bill.tailoring_number %}<br>{{ bill.tailoring_number }}{% endif %}</td><td><time datetime="{{ bill.created_at }}">{{ bill.created_at[:10] }}</time></td><td class="number">PKR {{ bill.grand_total|pkr }}</td><td class="number">PKR {{ bill.paid_amount|pkr }}</td><td class="number">PKR {{ bill.later_payments|pkr }}</td><td class="number">PKR {{ bill.remaining_balance|pkr }}</td><td class="number{% if bill.current_outstanding > 0 %} negative-value{% endif %}">PKR {{ bill.current_outstanding|pkr }}</td><td><a href="{{ url_for('web.sale_detail', sale_id=bill.id) }}">Bill</a>{% if bill.tailoring_order_id %}<br><a href="{{ url_for('web.tailoring_order_detail', tailoring_order_id=bill.tailoring_order_id) }}">Tailoring</a>{% endif %}{% if bill.current_outstanding > 0 %}<br><a href="{{ url_for('web.payment_new', customer_id=customer.id, sale_id=bill.id) }}">Record payment</a>{% endif %}</td></tr>{% endfor %}
+  </tbody></table></div>{% else %}<p class="empty-copy">No finalized bills are linked to this customer.</p>{% endif %}
+</section>
+<section class="card table-card" aria-labelledby="customer-payments-heading">
+  <div class="section-heading"><h2 id="customer-payments-heading">Later-payment history</h2><span>Immutable records</span></div>
+  {% if account.payments %}<div class="table-wrap"><table><thead><tr><th>Payment</th><th>Date and time</th><th>Bill</th><th class="number">Amount</th><th>Receipt</th></tr></thead><tbody>{% for payment in account.payments %}<tr><td><strong>{{ payment.payment_number }}</strong></td><td><time datetime="{{ payment.created_at }}">{{ payment.created_at[:10] }} {{ payment.created_at[11:19] }} UTC</time></td><td><a href="{{ url_for('web.sale_detail', sale_id=payment.sale_id) }}">{{ payment.bill_number }}</a></td><td class="number">PKR {{ payment.amount|pkr }}</td><td><a href="{{ url_for('web.payment_receipt', payment_id=payment.id) }}">Receipt</a></td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="empty-copy">No later payments have been recorded.</p>{% endif %}
+</section>
+<section class="card" aria-labelledby="measurement-summary-heading">
+  <div class="section-heading"><h2 id="measurement-summary-heading">Measurement records</h2><a href="{{ url_for('web.customer_measurements', customer_id=customer.id) }}">Open measurements</a></div>
+  {% if latest_measurements %}<ul class="plain-list">{% for category, revision in latest_measurements.items() %}<li><strong>{{ category }}{% if revision.custom_description %}: {{ revision.custom_description }}{% endif %}</strong> &mdash; revision {{ revision.revision_number }}, {{ revision.created_at[:10] }} {{ revision.created_at[11:19] }} UTC</li>{% endfor %}</ul>
+  {% else %}<p class="empty-copy">No measurement revisions have been saved for this customer.</p>{% endif %}
+</section>
+<section class="card table-card" aria-labelledby="customer-tailoring-heading">
+  <div class="section-heading"><h2 id="customer-tailoring-heading">Tailoring orders</h2><a href="{{ url_for('web.tailoring_orders', q=customer.customer_number) }}">View all matching orders</a></div>
+  {% if tailoring_orders %}<div class="table-wrap"><table><thead><tr><th>Tailoring</th><th>Bill</th><th>Promised</th><th>Status</th><th>Record</th></tr></thead><tbody>{% for order in tailoring_orders %}<tr><td>{{ order.tailoring_number }}</td><td>{{ order.bill_number }}</td><td>{{ order.promised_date }}</td><td>{{ order.status }}</td><td><a href="{{ url_for('web.tailoring_order_detail', tailoring_order_id=order.id) }}">View</a></td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="empty-copy">No tailoring orders have been finalized for this customer.</p>{% endif %}
+</section>
+<p><a href="{{ url_for('web.customers') }}">Back to customers</a></p>
+{% endblock %}

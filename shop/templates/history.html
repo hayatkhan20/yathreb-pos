@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Stock history &middot; Shop inventory{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">Inventory</p>
+    <h1>Stock history</h1>
+    <p>Each row is a permanent stock entry with the names saved at entry time.</p>
+  </div>
+  <a class="button primary" href="{{ url_for('web.stock') }}">Add stock</a>
+</div>
+
+{% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+
+{% if variant_id %}
+  <div class="callout">Showing one stock combination. <a href="{{ url_for('web.history') }}">Show all recent entries</a>.</div>
+{% endif %}
+
+<section class="card table-card" aria-labelledby="history-heading">
+  <div class="section-heading">
+    <h2 id="history-heading">Recent entries</h2>
+    <span>{{ movements|length }} shown</span>
+  </div>
+  {% if movements %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Date (UTC)</th><th>Product</th><th>Brand</th><th>Exact variant</th><th>Entry type</th><th class="number">Quantity</th><th>Entered by</th><th>Note</th></tr>
+        </thead>
+        <tbody>
+          {% for movement in movements %}
+            <tr>
+              <td>{{ movement.created_at }}</td>
+              <td>{{ movement.product }}</td>
+              <td>{{ movement.brand }}</td>
+              <td>{% if movement.article %}{{ movement.article }} &middot; {% endif %}{{ movement.colour }}{% if movement.size %} &middot; {{ movement.size }}{% endif %}</td>
+              <td>{% if movement.kind == 'opening' %}Opening stock{% else %}Incoming stock{% endif %}</td>
+              <td class="number"><strong>{{ movement.quantity|quantity }}</strong> {{ unit_labels[movement.unit] }}</td>
+              <td>{{ movement.username }}</td>
+              <td>{% if movement.note %}{{ movement.note }}{% else %}&mdash;{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state"><h3>No stock history found</h3><p>Saved opening and incoming stock entries will appear here.</p></div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Customers &middot; Shop management{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">Customer records</p>
+    <h1>Customers</h1>
+    <p>Find a customer by their generated ID, name, or mobile number.</p>
+  </div>
+</div>
+
+{% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+
+<section class="card" aria-labelledby="customer-search-heading">
+  <h2 id="customer-search-heading">Find a customer</h2>
+  <form method="get" action="{{ url_for('web.customers') }}" class="filter-grid">
+    <div class="field">
+      <label for="customer-search">Customer ID, name, or mobile</label>
+      <input id="customer-search" type="search" name="q" value="{{ search }}" maxlength="120" autocomplete="off">
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="primary">Search</button>
+      <a class="button secondary" href="{{ url_for('web.customers') }}">Clear</a>
+    </div>
+  </form>
+</section>
+
+<details class="card"{% if error and request.method == 'POST' %} open{% endif %}>
+  <summary><strong>Add customer</strong></summary>
+  <p class="section-note">A normalized primary mobile already assigned to another customer will be rejected.</p>
+  <form method="post" action="{{ url_for('web.customers') }}" class="stacked-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
+    <div class="field-row">
+      <div class="field"><label for="customer-name">Name</label><input id="customer-name" name="name" value="{{ form.name }}" maxlength="120" required autocomplete="name"></div>
+      <div class="field"><label for="customer-mobile">Primary mobile</label><input id="customer-mobile" name="primary_mobile" value="{{ form.primary_mobile }}" maxlength="40" required inputmode="tel" autocomplete="tel"></div>
+    </div>
+    <div class="field"><label for="customer-alt-mobile">Alternate mobile <span class="optional">optional</span></label><input id="customer-alt-mobile" name="alternate_mobile" value="{{ form.alternate_mobile }}" maxlength="40" inputmode="tel"></div>
+    <div class="field"><label for="customer-address">Address <span class="optional">optional</span></label><textarea id="customer-address" name="address" maxlength="500" rows="3">{{ form.address }}</textarea></div>
+    <div class="field"><label for="customer-notes">Notes <span class="optional">optional</span></label><textarea id="customer-notes" name="notes" maxlength="2000" rows="3">{{ form.notes }}</textarea></div>
+    <div class="form-actions"><button type="submit" class="primary">Add customer</button></div>
+  </form>
+</details>
+
+<section class="card table-card" aria-labelledby="customer-list-heading">
+  <div class="section-heading"><h2 id="customer-list-heading">{% if search %}Matching customers{% else %}Customer list{% endif %}</h2><span>Up to 200 records</span></div>
+  {% if customers %}
+    <div class="table-wrap"><table>
+      <thead><tr><th>Customer ID</th><th>Name</th><th>Primary mobile</th><th>Alternate mobile</th><th>Actions</th></tr></thead>
+      <tbody>{% for customer in customers %}<tr>
+        <td><strong>{{ customer.customer_number }}</strong></td><td>{{ customer.name }}</td><td>{{ customer.primary_mobile }}</td>
+        <td>{% if customer.alternate_mobile %}{{ customer.alternate_mobile }}{% else %}<span class="empty-copy">Not recorded</span>{% endif %}</td>
+        <td><a href="{{ url_for('web.customer_detail', customer_id=customer.id) }}">View customer</a></td>
+      </tr>{% endfor %}</tbody>
+    </table></div>
+  {% else %}<div class="empty-state"><p>{% if search %}No customers match &ldquo;{{ search }}&rdquo;.{% else %}No customers have been added yet.{% endif %}</p></div>{% endif %}
+</section>
+{% endblock %}

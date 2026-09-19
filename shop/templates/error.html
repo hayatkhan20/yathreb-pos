@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Request problem · Shop inventory{% endblock %}
+{% block content %}
+<section class="narrow-card">
+  <p class="eyebrow">Error {{ status }}</p>
+  <h1>The request could not be completed</h1>
+  <div class="alert error" role="alert">{{ message }}</div>
+  <p><a class="button secondary" href="{{ url_for('web.index') if g.user else url_for('auth.login') }}">Return to a safe page</a></p>
+</section>
+{% endblock %}

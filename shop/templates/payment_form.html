@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Record payment &middot; Customer account{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">Later payment</p><h1>Record payment</h1><p>Apply money received to one explicitly selected customer bill.</p></div><a class="button secondary" href="{{ url_for('web.customer_detail', customer_id=customer.id) }}">Customer account</a></div>
+{% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+{% if bill %}<section class="card" aria-labelledby="selected-bill-heading"><div class="section-heading"><div><h2 id="selected-bill-heading">{{ bill.bill_number }}</h2><p>{{ customer.customer_number }} &middot; {{ customer.name }} &middot; {{ customer.primary_mobile }}</p></div><a href="{{ url_for('web.sale_detail', sale_id=bill.id) }}">Open finalized bill</a></div>
+<dl class="record-grid"><div><dt>Original grand total</dt><dd>PKR {{ bill.grand_total|pkr }}</dd></div><div><dt>Paid at finalization</dt><dd>PKR {{ bill.paid_amount|pkr }}</dd></div><div><dt>Later payments received</dt><dd>PKR {{ bill.later_payments|pkr }}</dd></div><div><dt>Remaining at finalization</dt><dd>PKR {{ bill.remaining_balance|pkr }}</dd></div><div><dt>Current outstanding</dt><dd class="{% if bill.outstanding_balance > 0 %}negative-value{% endif %}">PKR {{ bill.outstanding_balance|pkr }}</dd></div></dl></section>
+{% if bill.outstanding_balance > 0 %}<section class="card" aria-labelledby="payment-entry-heading"><h2 id="payment-entry-heading">Amount received</h2><form method="post" class="stacked-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="request_key" value="{{ request_key }}">
+  <div class="field"><label for="payment-amount">Payment amount <span class="optional">PKR</span></label><input id="payment-amount" name="amount" value="{{ amount_text }}" inputmode="decimal" autocomplete="off" placeholder="0.00" required autofocus><p class="form-hint">Must be greater than zero and no more than the current outstanding balance.</p></div>
+  <div class="form-actions"><button type="submit" class="primary">Save payment and open receipt</button></div>
+</form></section>{% elif not error %}<div class="alert success" role="status">This bill is fully paid. No later payment can be recorded.</div>{% endif %}
+{% endif %}
+{% endblock %}

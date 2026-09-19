@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Customer Balances &middot; Shop management{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">Customer accounts</p><h1>Customer Balances</h1><p>Review balances derived from finalized bills, initial payments and immutable later payments.</p></div></div>
+{% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+<section class="card" aria-labelledby="balance-search-heading"><h2 id="balance-search-heading">Find a customer account</h2><form method="get" action="{{ url_for('web.customer_balances') }}" class="filter-grid">
+  <div class="field"><label for="balance-search">Customer ID, name, or mobile</label><input id="balance-search" type="search" name="q" value="{{ search }}" maxlength="120" autocomplete="off"></div>
+  <div class="field"><label for="balance-scope">Accounts to show</label><select id="balance-scope" name="scope"><option value="outstanding"{% if scope == 'outstanding' %} selected{% endif %}>Outstanding balances only</option><option value="all"{% if scope == 'all' %} selected{% endif %}>All customers</option></select></div>
+  <div class="form-actions"><button type="submit" class="primary">Search / filter</button><a class="button secondary" href="{{ url_for('web.customer_balances') }}">Clear</a></div>
+</form></section>
+<section class="card table-card" aria-labelledby="balance-list-heading"><div class="section-heading"><h2 id="balance-list-heading">{{ 'Outstanding customer balances' if scope == 'outstanding' else 'All customer accounts' }}</h2><span>Up to 200 customers</span></div>
+{% if customers %}<div class="table-wrap"><table><thead><tr><th>Customer ID</th><th>Name</th><th>Mobile</th><th class="number">Unpaid bills</th><th class="number">Total outstanding</th><th>Account</th></tr></thead><tbody>{% for customer in customers %}<tr><td><strong>{{ customer.customer_number }}</strong></td><td>{{ customer.name }}</td><td>{{ customer.primary_mobile }}</td><td class="number">{{ customer.unpaid_bill_count }}</td><td class="number{% if customer.total_outstanding > 0 %} negative-value{% endif %}">PKR {{ customer.total_outstanding|pkr }}</td><td><a href="{{ url_for('web.customer_detail', customer_id=customer.id) }}">View account</a></td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="empty-copy">No customer accounts match these filters.</p>{% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Sales history &middot; Shop inventory{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">Sales</p>
+    <h1>Sales history</h1>
+    <p>Finalized bills are immutable. Opening or printing a saved bill does not deduct stock again.</p>
+  </div>
+  <a class="button primary" href="{{ url_for('web.billing') }}">New bill</a>
+</div>
+
+<nav class="report-links" aria-label="Sales record views">
+  <a class="button secondary" href="{{ url_for('web.sales_history') }}" aria-current="page">Sales history</a>
+  <a class="button secondary" href="{{ url_for('web.daily_sales') }}">Daily sales</a>
+  <a class="button secondary" href="{{ url_for('web.monthly_sales') }}">Monthly sales</a>
+</nav>
+
+{% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+
+<section class="card" aria-labelledby="sales-search-heading">
+  <h2 id="sales-search-heading">Find a finalized bill</h2>
+  <form method="get" action="{{ url_for('web.sales_history') }}" class="filter-grid">
+    <div class="field">
+      <label for="sales-search">Bill number, customer name, or mobile number</label>
+      <input id="sales-search" type="search" name="q" value="{{ search }}" maxlength="120" autocomplete="off">
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="primary">Search</button>
+      <a class="button secondary" href="{{ url_for('web.sales_history') }}">Clear</a>
+    </div>
+  </form>
+</section>
+
+<section class="card table-card" aria-labelledby="sales-list-heading">
+  <div class="section-heading">
+    <h2 id="sales-list-heading">{% if search %}Matching finalized bills{% else %}Recent finalized bills{% endif %}</h2>
+    <span>Newest first; up to 200 bills</span>
+  </div>
+  {% if sales %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Bill</th><th>Date and time</th><th>Customer</th><th class="number">Grand total</th><th class="number">Paid</th><th class="number">Remaining</th><th>Receipt</th></tr>
+        </thead>
+        <tbody>
+          {% for sale in sales %}
+            <tr>
+              <td><strong>{{ sale.bill_number }}</strong></td>
+              <td><time datetime="{{ sale.created_at }}">{{ sale.created_at[:10] }} {{ sale.created_at[11:19] }} UTC</time></td>
+              <td>{% if sale.customer_name or sale.customer_mobile %}{{ sale.customer_name }}{% if sale.customer_name and sale.customer_mobile %}<br>{% endif %}{{ sale.customer_mobile }}{% else %}<span class="empty-copy">Not recorded</span>{% endif %}</td>
+              <td class="number">PKR {{ sale.grand_total|pkr }}</td>
+              <td class="number">PKR {{ sale.paid_amount|pkr }}</td>
+              <td class="number{% if sale.remaining_balance %} negative-value{% endif %}">PKR {{ sale.remaining_balance|pkr }}</td>
+              <td><a href="{{ url_for('web.sale_detail', sale_id=sale.id) }}">Open / reprint</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      {% if search %}<p>No finalized bills match “{{ search }}”.</p><a class="button secondary" href="{{ url_for('web.sales_history') }}">Clear search</a>
+      {% else %}<p>No sales have been finalized yet.</p><a class="button primary" href="{{ url_for('web.billing') }}">Create the first bill</a>{% endif %}
+    </div>
+  {% endif %}
+</section>
+{% endblock %}
