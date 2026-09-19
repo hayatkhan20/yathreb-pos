@@ -1345,8 +1345,14 @@ def measurement_customers():
 def customer_measurements(customer_id):
     customer = _customer_or_404(customer_id)
     category = request.values.get("category", next(iter(STANDARD_MEASUREMENT_TEMPLATES)))
+    wants_json = (
+        request.method == "POST"
+        and request.accept_mimetypes.best == "application/json"
+    )
     valid_categories = set(STANDARD_MEASUREMENT_TEMPLATES) | {CUSTOM_GARMENT_CATEGORY}
     if category not in valid_categories:
+        if wants_json:
+            return jsonify(error="Choose one of the available measurement templates."), 400
         if request.method == "POST":
             return _measurement_page(
                 customer, next(iter(STANDARD_MEASUREMENT_TEMPLATES)), form=request.form,
@@ -1426,9 +1432,17 @@ def customer_measurements(customer_id):
             custom_description=custom_description, notes=request.form.get("notes", ""),
         )
     except DomainError as caught:
+        if wants_json:
+            return jsonify(error=str(caught)), 400
         return _measurement_page(
             customer, category, form=request.form, error=str(caught), status=400
         )
+    if wants_json:
+        return jsonify(
+            category=category,
+            revision_id=saved["revision_id"],
+            revision_number=saved["revision_number"],
+        ), 201
     return redirect(
         url_for(
             "web.customer_measurements", customer_id=customer_id, category=category,
