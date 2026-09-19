@@ -664,6 +664,11 @@
       ? clothOptions.querySelector("[data-cloth-alternatives]") : null;
     const differentClothButton = clothOptions
       ? clothOptions.querySelector("[data-use-different-cloth]") : null;
+    const saleModeInputs = Array.from(billingForm.querySelectorAll("[data-sale-mode]"));
+    const saleModeSections = Array.from(
+      billingForm.querySelectorAll("[data-sale-mode-section]"),
+    );
+    const saleModeStatus = billingForm.querySelector("[data-sale-mode-status]");
     const actionInput = document.createElement("input");
     actionInput.type = "hidden";
     actionInput.name = "action";
@@ -683,6 +688,27 @@
       && previousFabricCount > 0
       && clothOptions.dataset.alternateSelected === "true"
     );
+
+    function applySaleMode() {
+      const selected = saleModeInputs.find((input) => input.checked);
+      const mode = selected ? selected.value : "product";
+      saleModeSections.forEach((section) => {
+        const sectionType = section.dataset.saleModeSection;
+        const visible = (sectionType === "products" && mode !== "tailoring")
+          || (sectionType === "tailoring" && mode !== "product");
+        section.classList.toggle("sale-mode-hidden", !visible);
+      });
+      if (saleModeStatus) {
+        const messages = {
+          product: "Customer details are optional unless a balance will remain.",
+          combined: "Add the products and stitching services to one combined bill.",
+          tailoring: "Select the customer, measurements, garment, and cloth source.",
+        };
+        saleModeStatus.textContent = messages[mode] || "";
+      }
+    }
+
+    saleModeInputs.forEach((input) => input.addEventListener("change", applySaleMode));
 
     function selectedOption(level) {
       return selects[level].selectedOptions[0] || null;
@@ -1306,6 +1332,7 @@
           : null,
       };
     }
+    applySaleMode();
     updateTotals();
     updateCurrentBillSummary();
     updateNegativeWarning();
