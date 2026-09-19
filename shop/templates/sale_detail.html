@@ -30,7 +30,6 @@
 
   <div class="receipt-meta">
     <p><span>Bill</span><strong>{{ sale.bill_number }}</strong></p>
-    {% if sale.tailoring_number %}<p><span>Tailoring</span><strong>{{ sale.tailoring_number }}</strong></p>{% endif %}
     <p><span>Date/time</span><time datetime="{{ sale.created_at }}">{{ sale.created_at[:10] }} {{ sale.created_at[11:19] }} UTC</time></p>
     {% if sale.customer_number %}<p><span>Customer ID</span><strong>{{ sale.customer_number }}</strong></p>{% endif %}
     {% if sale.customer_name %}<p><span>Customer</span><strong>{{ sale.customer_name }}</strong></p>{% endif %}
