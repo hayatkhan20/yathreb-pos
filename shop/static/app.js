@@ -669,6 +669,16 @@
       billingForm.querySelectorAll("[data-sale-mode-section]"),
     );
     const saleModeStatus = billingForm.querySelector("[data-sale-mode-status]");
+    const customerSearch = billingForm.querySelector("[data-billing-customer-search]");
+    const customerResults = billingForm.querySelector("[data-billing-customer-results]");
+    const customerStatus = billingForm.querySelector("[data-billing-customer-status]");
+    const customerSearchFallback = billingForm.querySelector("[data-customer-search-fallback]");
+    const customerDialogLink = billingForm.querySelector("[data-open-customer-dialog]");
+    const customerDialog = document.querySelector("[data-customer-dialog]");
+    const inlineCustomerForm = customerDialog
+      ? customerDialog.querySelector("[data-inline-customer-form]") : null;
+    const inlineCustomerError = customerDialog
+      ? customerDialog.querySelector("[data-inline-customer-error]") : null;
     const actionInput = document.createElement("input");
     actionInput.type = "hidden";
     actionInput.name = "action";
@@ -688,6 +698,148 @@
       && previousFabricCount > 0
       && clothOptions.dataset.alternateSelected === "true"
     );
+
+    function submitBillingAction(value) {
+      const submitter = document.createElement("button");
+      submitter.type = "submit";
+      submitter.hidden = true;
+      submitter.formNoValidate = true;
+      submitter.dataset.billingAction = value;
+      billingForm.append(submitter);
+      billingForm.requestSubmit(submitter);
+    }
+
+    function hideCustomerResults() {
+      if (!customerResults || !customerSearch) return;
+      customerResults.hidden = true;
+      customerSearch.setAttribute("aria-expanded", "false");
+    }
+
+    function renderCustomerResults(customers) {
+      if (!customerResults || !customerSearch || !customerStatus) return;
+      customerResults.replaceChildren();
+      if (!customers.length) {
+        hideCustomerResults();
+        customerStatus.textContent = "No matching customers found.";
+        return;
+      }
+      customers.forEach((customer) => {
+        const option = document.createElement("button");
+        option.type = "button";
+        option.className = "customer-match";
+        option.setAttribute("role", "option");
+        const identity = document.createElement("strong");
+        identity.textContent = `${customer.customer_number} · ${customer.name}`;
+        const mobile = document.createElement("span");
+        mobile.textContent = customer.primary_mobile;
+        option.append(identity, mobile);
+        option.addEventListener("click", () => {
+          customerStatus.textContent = `Selecting ${customer.name}…`;
+          hideCustomerResults();
+          submitBillingAction(`select_customer:${customer.id}`);
+        });
+        customerResults.append(option);
+      });
+      customerResults.hidden = false;
+      customerSearch.setAttribute("aria-expanded", "true");
+      customerStatus.textContent = `${customers.length} matching customer${customers.length === 1 ? "" : "s"}.`;
+    }
+
+    let customerSearchTimer = null;
+    let customerSearchRequest = null;
+    async function loadCustomerResults() {
+      if (!customerSearch || !customerResults || !customerStatus) return;
+      const query = customerSearch.value.trim();
+      if (query.length < 2) {
+        if (customerSearchRequest) customerSearchRequest.abort();
+        hideCustomerResults();
+        customerStatus.textContent = "Type at least 2 characters to see matching customers.";
+        return;
+      }
+      if (customerSearchRequest) customerSearchRequest.abort();
+      customerSearchRequest = new AbortController();
+      customerStatus.textContent = "Searching customers…";
+      try {
+        const url = new URL(billingForm.dataset.customerUrl, window.location.href);
+        url.searchParams.set("q", query);
+        const response = await fetch(url, {
+          headers: { Accept: "application/json" },
+          signal: customerSearchRequest.signal,
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || "Customer search failed.");
+        renderCustomerResults(payload.customers || []);
+      } catch (error) {
+        if (error.name === "AbortError") return;
+        hideCustomerResults();
+        customerStatus.textContent = "Customer search is unavailable. Use Search customers.";
+      }
+    }
+
+    if (customerSearch && customerResults && customerStatus) {
+      customerSearch.addEventListener("input", () => {
+        window.clearTimeout(customerSearchTimer);
+        customerSearchTimer = window.setTimeout(loadCustomerResults, 180);
+      });
+      customerSearch.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") hideCustomerResults();
+        if (event.key === "ArrowDown" && !customerResults.hidden) {
+          const first = customerResults.querySelector("button");
+          if (first) {
+            event.preventDefault();
+            first.focus();
+          }
+        }
+      });
+      document.addEventListener("click", (event) => {
+        if (!event.target.closest(".customer-search-field")) hideCustomerResults();
+      });
+      if (customerSearchFallback) customerSearchFallback.hidden = true;
+    }
+
+    if (
+      customerDialogLink
+      && customerDialog
+      && inlineCustomerForm
+      && typeof customerDialog.showModal === "function"
+    ) {
+      customerDialogLink.addEventListener("click", (event) => {
+        event.preventDefault();
+        if (inlineCustomerError) inlineCustomerError.hidden = true;
+        customerDialog.showModal();
+        const nameInput = inlineCustomerForm.querySelector('[name="name"]');
+        if (nameInput) nameInput.focus();
+      });
+      customerDialog.querySelectorAll("[data-close-customer-dialog]").forEach((button) => {
+        button.addEventListener("click", () => customerDialog.close());
+      });
+      inlineCustomerForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const saveButton = inlineCustomerForm.querySelector("[data-save-inline-customer]");
+        if (saveButton) saveButton.disabled = true;
+        if (inlineCustomerError) inlineCustomerError.hidden = true;
+        try {
+          const response = await fetch(inlineCustomerForm.action, {
+            method: "POST",
+            headers: { Accept: "application/json" },
+            body: new FormData(inlineCustomerForm),
+          });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.error || "The customer could not be added.");
+          inlineCustomerForm.reset();
+          customerDialog.close();
+          submitBillingAction(`select_customer:${payload.customer.id}`);
+        } catch (error) {
+          if (inlineCustomerError) {
+            inlineCustomerError.textContent = error.message;
+            inlineCustomerError.hidden = false;
+            inlineCustomerError.focus();
+          }
+        } finally {
+          if (saveButton) saveButton.disabled = false;
+        }
+      });
+    }
 
     function applySaleMode() {
       const selected = saleModeInputs.find((input) => input.checked);
