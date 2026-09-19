@@ -433,6 +433,7 @@ def _tailoring_selection(source, customer):
         "categories": categories,
         "category": category,
         "custom_description": custom_description,
+        "definition": STANDARD_MEASUREMENT_TEMPLATES.get(category),
         "rate": rate,
         "measurement": measurement,
     }
