@@ -66,7 +66,7 @@ This is the concise briefing for routine work. `Clothing-Stitching-Project-Recor
 - Schema version 4 (`measurement-templates-rates-v4`) fails explicitly against incompatible schema-version-3 databases so they can be preserved and recreated separately.
 - Phase 3A/3A.1 backend foundation: sequential Customers, searchable normalized mobiles, seven confirmed revisioned measurement templates plus flexible Other / Custom Item, append-only default stitching rates, sequential multi-item tailoring orders, combined product/service bills, separate later payments and derived customer balances.
 - The original product-only finalization remains compatible. Billing now uses the atomic combined service for product-only, tailoring-only, or combined product-and-stitching bills; later-payment collection remains service-only.
-- Billing has one combined cart, BILL number, discount, initial payment and remaining balance. It retains automatic parent-scoped Product selection, price overrides, negative-stock handling and server fallback, and adds existing-Customer search/selection plus standard or custom tailoring lines.
+- Billing has one combined cart, BILL number, discount, initial payment and remaining balance. A guided sale-type selector shows the relevant Product and tailoring entry sections for Products only, Products + stitching, or Stitching only when JavaScript is available, while the complete server fallback remains available without JavaScript. It retains automatic parent-scoped Product selection, price overrides, negative-stock handling and server fallback, and adds existing-Customer search/selection plus standard or custom tailoring lines.
 - Billing isolates Product and tailoring actions so tailoring fields never trigger Product-quantity validation. Product additions show a top confirmation and compact current-bill summary while retaining the complete bill table. Current-bill Fabric is linked automatically when exactly one eligible Fabric line exists, requires an explicit choice when several exist, and keeps Customer-provided or eligible earlier-bill Fabric available as alternate sources.
 - Standard tailoring draft lines use the selected Customer's latest matching measurements and current configured rate. Custom lines use an exact matching custom measurement description and manual price. Shop cloth links reference a current-bill Fabric line or an earlier finalized Fabric line owned by that Customer without deducting stock again; Customer-provided cloth has no product link or movement.
 - Exact-variant default-price editing is available from Billing. A bill-time override remains confined to that immutable sale snapshot.
@@ -80,7 +80,7 @@ This is the concise briefing for routine work. `Clothing-Stitching-Project-Recor
 - Later payments are recorded against one explicit outstanding Customer bill through the atomic payment service. Successful submissions redirect to an immutable printable `PAY-######` 80mm acknowledgement; Customer and bill pages show payment history and current derived balances without changing the historical sale receipt.
 - Sales History supports one case-insensitive search for bill number, customer name, or mobile, with a Clear action. Daily and monthly finalized-sales reports default to the current Pakistan date/month, accept another valid period, total bill count and all recorded bill amounts, and link each listed bill to its receipt.
 - Integrity check, non-overwriting backup/restore, local service, and optional private-LAN service commands.
-- One hundred seventeen automated test methods are present in source. Test execution remains the user's responsibility.
+- One hundred twenty automated test methods are present in source. Test execution remains the user's responsibility.
 - Tailoring status updates, payment-method allocation, refunds, returns, bill/payment cancellation or editing, and cumulative reporting are not implemented; this remains an incremental POS foundation.
 
 ## Unresolved business decisions
@@ -106,4 +106,4 @@ Set-Location 'C:\Users\hanif\Desktop\Yathreb-Safeer\Inventory'
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-Expected result: 117 tests run and the final result is `OK`. Codex must report this as unverified until the user supplies the output.
+Expected result: 120 tests run and the final result is `OK`. Codex must report this as unverified until the user supplies the output.
