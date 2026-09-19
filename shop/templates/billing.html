@@ -227,7 +227,6 @@
   <section class="card tailoring-addition" aria-labelledby="tailoring-add-heading" data-tailoring-addition data-sale-mode-section="tailoring">
     <div class="section-heading"><div><h2 id="tailoring-add-heading">3. Add tailoring</h2><p class="section-note">Tailoring requires a selected customer, saved measurements and one promised date for the complete tailoring order.</p></div></div>
     {% if error and feedback_target == 'tailoring' %}<div class="alert error" role="alert">{{ error }} The current bill has been kept where possible.</div>{% endif %}
-    {% if notice and feedback_target == 'tailoring' %}<div class="alert success" role="status">{{ notice }}</div>{% endif %}
     <div class="filter-grid">
       <div class="field"><label for="tailoring-category">Garment</label><select id="tailoring-category" name="tailoring_category" data-tailoring-refresh>
         {% for category in tailoring_selection.categories %}<option value="{{ category }}"{% if tailoring_selection.category == category %} selected{% endif %}>{{ category }}</option>{% endfor %}
@@ -288,6 +287,7 @@
       </fieldset>
       <div class="field"><label for="order-notes">Tailoring order notes <span class="optional">optional; shared by this order</span></label><textarea id="order-notes" name="order_notes" maxlength="2000" rows="3">{{ order_notes }}</textarea></div>
       <div class="form-actions"><button type="submit" class="primary" name="action" value="add_tailoring"{% if not tailoring_selection.measurement or (tailoring_selection.category != 'Other / Custom Item' and not tailoring_selection.rate) %} disabled{% endif %}>Add tailoring to bill</button></div>
+      {% if notice and feedback_target == 'tailoring' %}<div class="alert success" role="status">{{ notice }}</div>{% endif %}
     {% endif %}
   </section>
 
