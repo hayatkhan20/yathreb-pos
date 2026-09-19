@@ -705,11 +705,17 @@ def index():
         context = _selection({})
         rows = list_stock(get_db())
         error = str(caught)
-    product_totals = {}
+    product_brand_totals = {}
     for row in rows:
-        total = product_totals.setdefault(
-            row["product_id"],
-            {"product": row["product"], "unit": row["unit"], "quantity": 0},
+        key = (row["product_id"], row["brand_id"])
+        total = product_brand_totals.setdefault(
+            key,
+            {
+                "product": row["product"],
+                "brand": row["brand"],
+                "unit": row["unit"],
+                "quantity": 0,
+            },
         )
         total["quantity"] += row["quantity"]
     return render_template(
@@ -717,7 +723,7 @@ def index():
         **context,
         form=request.args,
         rows=rows,
-        product_totals=list(product_totals.values()),
+        product_brand_totals=list(product_brand_totals.values()),
         error=error,
     ), 400 if error else 200
 
