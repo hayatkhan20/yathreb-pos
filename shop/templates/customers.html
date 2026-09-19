@@ -9,6 +9,11 @@
   </div>
 </div>
 
+<nav class="page-tabs" aria-label="Customer sections">
+  <a href="{{ url_for('web.customers') }}" aria-current="page">Customer records</a>
+  <a href="{{ url_for('web.customer_balances') }}">Balances &amp; payments</a>
+</nav>
+
 {% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
 
 <section class="card" aria-labelledby="customer-search-heading">
