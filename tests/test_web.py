@@ -292,6 +292,8 @@ class WebFoundationTests(unittest.TestCase):
     def test_current_stock_summarizes_each_product_separately(self):
         fabric, fabric_brand, _, article, _, fabric_colour, _ = self.make_fabric_catalogue()
         sized, sized_brand, _, sized_colour, _, sized_size, _ = self.make_sized_catalogue()
+        with closing(connect_database(self.database)) as connection:
+            confirm_unit(connection, sized["id"], "pair")
         self.sign_in()
 
         for request_key, product_id, brand_id, article_id, colour_id, size_id, quantity in (
@@ -319,7 +321,7 @@ class WebFoundationTests(unittest.TestCase):
         self.assertIn("Product totals", page)
         self.assertIn("<span>Fabric</span><strong>7.5 metres</strong>", page)
         self.assertIn(
-            f"<span>{sized['name']}</span><strong>3 {sized['unit']}s</strong>",
+            f"<span>{sized['name']}</span><strong>3 pairs</strong>",
             page,
         )
         self.assertEqual(2, page.count("data-stock-product-total"))
