@@ -639,6 +639,7 @@
     const negativeWarning = billingForm.querySelector("[data-negative-warning]");
     const addProductButton = billingForm.querySelector("[data-add-bill-line]");
     const billItemsInput = billingForm.querySelector("[data-bill-items]");
+    const tailoringItemsInput = billingForm.querySelector("[data-tailoring-items]");
     const billLines = billingForm.querySelector("[data-bill-lines]");
     const lineCount = billingForm.querySelector("[data-bill-line-count]");
     const confirmation = document.querySelector("[data-billing-confirmation]");
@@ -679,6 +680,12 @@
       ? customerDialog.querySelector("[data-inline-customer-form]") : null;
     const inlineCustomerError = customerDialog
       ? customerDialog.querySelector("[data-inline-customer-error]") : null;
+    const measurementDialogLink = billingForm.querySelector("[data-open-measurement-dialog]");
+    const measurementDialog = document.querySelector("[data-measurement-dialog]");
+    const inlineMeasurementForm = measurementDialog
+      ? measurementDialog.querySelector("[data-inline-measurement-form]") : null;
+    const inlineMeasurementError = measurementDialog
+      ? measurementDialog.querySelector("[data-inline-measurement-error]") : null;
     const actionInput = document.createElement("input");
     actionInput.type = "hidden";
     actionInput.name = "action";
@@ -844,6 +851,85 @@
             inlineCustomerError.textContent = error.message;
             inlineCustomerError.hidden = false;
             inlineCustomerError.focus();
+          }
+        } finally {
+          if (saveButton) saveButton.disabled = false;
+        }
+      });
+    }
+
+    if (
+      measurementDialogLink
+      && measurementDialog
+      && inlineMeasurementForm
+      && typeof measurementDialog.showModal === "function"
+    ) {
+      measurementDialogLink.addEventListener("click", (event) => {
+        event.preventDefault();
+        if (inlineMeasurementError) inlineMeasurementError.hidden = true;
+        measurementDialog.showModal();
+        const firstInput = inlineMeasurementForm.querySelector(
+          'input:not([type="hidden"]), textarea',
+        );
+        if (firstInput) firstInput.focus();
+      });
+      measurementDialog.querySelectorAll("[data-close-measurement-dialog]").forEach((button) => {
+        button.addEventListener("click", () => measurementDialog.close());
+      });
+      inlineMeasurementForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const saveButton = inlineMeasurementForm.querySelector(
+          "[data-save-inline-measurement]",
+        );
+        const measurementData = new FormData(inlineMeasurementForm);
+        if (saveButton) saveButton.disabled = true;
+        if (inlineMeasurementError) inlineMeasurementError.hidden = true;
+        try {
+          const response = await fetch(inlineMeasurementForm.action, {
+            method: "POST",
+            headers: { Accept: "application/json" },
+            body: measurementData,
+          });
+          const payload = await response.json();
+          if (!response.ok) {
+            throw new Error(payload.error || "The measurements could not be saved.");
+          }
+
+          const category = String(measurementData.get("category") || "");
+          const customDescription = String(
+            measurementData.get("custom_description") || "",
+          ).trim();
+          const billingCustomDescription = billingForm.querySelector(
+            "[data-tailoring-custom-description]",
+          );
+          if (billingCustomDescription && customDescription) {
+            billingCustomDescription.value = customDescription;
+          }
+
+          if (tailoringItemsInput && tailoringItemsInput.value) {
+            try {
+              const items = JSON.parse(tailoringItemsInput.value);
+              items.forEach((item) => {
+                const sameCategory = item.garment_category === category;
+                const sameCustomItem = category !== "Other / Custom Item"
+                  || item.custom_description === customDescription;
+                if (sameCategory && sameCustomItem) {
+                  item.measurement_revision_id = payload.revision_id;
+                }
+              });
+              tailoringItemsInput.value = JSON.stringify(items);
+            } catch (error) {
+              throw new Error("The current tailoring draft could not be refreshed.");
+            }
+          }
+
+          measurementDialog.close();
+          submitBillingAction("open_tailoring");
+        } catch (error) {
+          if (inlineMeasurementError) {
+            inlineMeasurementError.textContent = error.message;
+            inlineMeasurementError.hidden = false;
+            inlineMeasurementError.focus();
           }
         } finally {
           if (saveButton) saveButton.disabled = false;
