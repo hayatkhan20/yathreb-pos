@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Tailors &middot; Shop management{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div><p class="eyebrow">Setup</p><h1>Tailors</h1><p>Add the people who receive stitching work. Inactive Tailors remain on earlier orders but are hidden from new assignments.</p></div>
+</div>
+{% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+{% if notice %}<div class="alert success" role="status">{{ notice }}</div>{% endif %}
+
+<section class="card" aria-labelledby="add-tailor-heading">
+  <h2 id="add-tailor-heading">Add Tailor</h2>
+  <form method="post" action="{{ url_for('web.tailors') }}" class="filter-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="add">
+    <div class="field"><label for="tailor-name">Tailor name</label><input id="tailor-name" name="name" maxlength="80" required autocomplete="name"></div>
+    <div class="field"><label for="tailor-mobile">Mobile <span class="optional">optional</span></label><input id="tailor-mobile" name="mobile" maxlength="40" inputmode="tel" autocomplete="tel"></div>
+    <div class="form-actions"><button type="submit" class="primary">Add Tailor</button></div>
+  </form>
+</section>
+
+<section class="card table-card" aria-labelledby="tailor-list-heading">
+  <div class="section-heading"><h2 id="tailor-list-heading">Tailor list</h2><span>{{ tailors|length }} record{{ '' if tailors|length == 1 else 's' }}</span></div>
+  {% if tailors %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Name</th><th>Mobile</th><th>Status</th><th>Availability</th></tr></thead>
+    <tbody>
+      {% for tailor in tailors %}<tr>
+        <td><strong>{{ tailor.name }}</strong></td>
+        <td>{{ tailor.mobile or 'Not recorded' }}</td>
+        <td><span class="status-badge">{{ 'Active' if tailor.active else 'Inactive' }}</span></td>
+        <td>
+          <form method="post" action="{{ url_for('web.tailors') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="set_active">
+            <input type="hidden" name="tailor_id" value="{{ tailor.id }}">
+            <input type="hidden" name="active" value="{{ 'false' if tailor.active else 'true' }}">
+            <button type="submit" class="secondary small">{{ 'Make inactive' if tailor.active else 'Make active' }}</button>
+          </form>
+        </td>
+      </tr>{% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<p class="empty-copy">No Tailors have been added yet.</p>{% endif %}
+</section>
+{% endblock %}
