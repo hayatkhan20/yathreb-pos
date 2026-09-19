@@ -23,8 +23,7 @@
           <a href="{{ url_for('web.index') }}"{% if request.endpoint in ('web.index', 'web.history') %} aria-current="page"{% endif %}>Current Stock</a>
           <a href="{{ url_for('web.billing') }}"{% if request.endpoint == 'web.billing' %} aria-current="page"{% endif %}>Billing</a>
           <a href="{{ url_for('web.sales_history') }}"{% if request.endpoint in ('web.sales_history', 'web.daily_sales', 'web.monthly_sales', 'web.sale_detail') %} aria-current="page"{% endif %}>Sales</a>
-          <a href="{{ url_for('web.customers') }}"{% if request.endpoint in ('web.customers', 'web.customer_detail', 'web.customer_edit') %} aria-current="page"{% endif %}>Customers</a>
-          <a href="{{ url_for('web.customer_balances') }}"{% if request.endpoint in ('web.customer_balances', 'web.payment_new', 'web.payment_receipt') %} aria-current="page"{% endif %}>Customer Balances</a>
+          <a href="{{ url_for('web.customers') }}"{% if request.endpoint in ('web.customers', 'web.customer_detail', 'web.customer_edit', 'web.customer_balances', 'web.payment_new', 'web.payment_receipt') %} aria-current="page"{% endif %}>Customers</a>
           <div class="sidebar-group">
             <span class="sidebar-group-label">Tailoring</span>
             <a href="{{ url_for('web.tailoring_orders') }}"{% if request.endpoint in ('web.tailoring_orders', 'web.tailoring_order_detail') %} aria-current="page"{% endif %}>Orders</a>
