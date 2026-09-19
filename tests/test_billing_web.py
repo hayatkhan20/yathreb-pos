@@ -162,7 +162,8 @@ class BillingWebTests(unittest.TestCase):
         self.assertIn("submitBillingAction", script)
         self.assertIn("select_customer:", script)
         self.assertIn('billingScrollKey = "yathreb-billing-scroll-y"', script)
-        self.assertIn('actionInput.value === "add_tailoring"', script)
+        self.assertIn('actionInput.value && actionInput.value !== "finalize"', script)
+        self.assertIn("window.sessionStorage.setItem(billingScrollKey", script)
         self.assertNotIn("confirmation.scrollIntoView", script)
 
     def test_billing_inline_customer_creation_validates_and_returns_customer(self):
@@ -333,6 +334,9 @@ class BillingWebTests(unittest.TestCase):
         self.assertIn('value="remove_line:0"', page)
         self.assertIn('<button type="button" class="primary" data-add-bill-line>', page)
         self.assertIn('name="action" value="add_line"', page)
+        confirmation_position = page.index("billing-add-confirmation")
+        self.assertGreater(confirmation_position, page.index("data-billing-variant"))
+        self.assertLess(confirmation_position, page.index("data-tailoring-addition"))
 
     def test_invalid_product_quantity_is_still_rejected_by_product_add_action(self):
         _, product, brand_id, article_id, colour_id = self.fabric_variant()
@@ -547,7 +551,16 @@ class BillingWebTests(unittest.TestCase):
             },
         )
         self.assertEqual(200, response.status_code)
-        self.assertIn("Default selling price updated", response.get_data(as_text=True))
+        page = response.get_data(as_text=True)
+        self.assertIn("Default selling price updated", page)
+        self.assertGreater(
+            page.index("Default selling price updated"),
+            page.index("Save default price"),
+        )
+        self.assertLess(
+            page.index("Default selling price updated"),
+            page.index("Selling price for this bill"),
+        )
 
         response = self.finalize(
             [{"variant_id": variant_id, "quantity": "1", "unit_price": 15_000}],
