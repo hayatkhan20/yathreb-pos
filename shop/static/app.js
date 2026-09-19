@@ -898,7 +898,7 @@
           const category = String(measurementData.get("category") || "");
           const customDescription = String(
             measurementData.get("custom_description") || "",
-          ).trim();
+          ).trim().replace(/\s+/g, " ");
           const billingCustomDescription = billingForm.querySelector(
             "[data-tailoring-custom-description]",
           );
