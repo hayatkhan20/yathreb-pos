@@ -194,6 +194,14 @@ th { color: #465260; background: #f9fafb; font-size: .8rem; letter-spacing: .02e
 .receipt-tailoring-item p { margin: 1mm 0 0; font-size: 10px; }
 
 .billing-form { display: grid; gap: 0; }
+.sale-type-card { border-color: #9fcac3; }
+.sale-type-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
+.sale-type-option { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .65rem; align-items: start; padding: .85rem; border: 1px solid var(--line); border-radius: .45rem; background: var(--surface); cursor: pointer; }
+.sale-type-option:has(input:checked) { border-color: #78a9a2; background: var(--accent-soft); }
+.sale-type-option input { width: 1.1rem; min-height: 1.1rem; margin-top: .2rem; }
+.sale-type-option span { display: grid; gap: .2rem; }
+.sale-type-option small { color: var(--muted); font-weight: 400; }
+.sale-mode-hidden { display: none !important; }
 .variant-card { border-color: #b7d5d0; }
 .variant-description { font-size: 1.05rem; font-weight: 700; }
 .variant-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; margin: 1rem 0; }
@@ -244,7 +252,7 @@ th { color: #465260; background: #f9fafb; font-size: .8rem; letter-spacing: .02e
   .mobile-brand:hover { color: white; }
   .page-heading { flex-direction: column; align-items: stretch; }
   .page { padding-top: 1.25rem; }
-  .field-row, .catalogue-grid, .totals, .variant-facts, .billing-checkout-grid, .dashboard-grid, .report-summary, .record-grid, .measurement-grid, .checkbox-grid { grid-template-columns: 1fr; }
+  .field-row, .catalogue-grid, .totals, .variant-facts, .billing-checkout-grid, .dashboard-grid, .report-summary, .record-grid, .measurement-grid, .checkbox-grid, .sale-type-grid { grid-template-columns: 1fr; }
   .custom-measurement-row { grid-template-columns: 1fr; }
   .customer-match-list, .tailoring-readiness { grid-template-columns: 1fr; }
   .selected-customer { align-items: stretch; flex-direction: column; }
