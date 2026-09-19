@@ -22,6 +22,7 @@ from shop.inventory import (
     catalogue,
     configure_stitching_rate,
     create_customer,
+    create_tailor,
     finalize_combined_bill,
     get_sale,
     get_tailoring_order,
@@ -741,6 +742,53 @@ class TailoringWebTests(unittest.TestCase):
             self.assertEqual(1, connection.execute("SELECT COUNT(*) FROM tailoring_orders").fetchone()[0])
             self.assertEqual(4_000, list_stock(connection)[0]["quantity"])
 
+    def test_tailors_can_be_added_in_billing_and_assigned_or_changed(self):
+        customer = self.customer()
+        revision = self.measurements(customer["customer_id"])
+        self.rate()
+        self.sign_in()
+
+        response = self.client.post("/tailors", data={
+            "csrf_token": self.csrf(), "action": "add",
+            "name": "Naveed", "mobile": "03001112222",
+        })
+        self.assertEqual(303, response.status_code)
+        response = self.client.post(
+            "/billing/tailors",
+            data={"csrf_token": self.csrf(), "name": "Rashid", "mobile": ""},
+            headers={"Accept": "application/json"},
+        )
+        self.assertEqual(201, response.status_code)
+        second_tailor = response.get_json()["tailor"]
+        billing_page = self.client.get("/billing").get_data(as_text=True)
+        self.assertIn("Assigned Tailor", billing_page)
+        self.assertIn("data-tailor-dialog", billing_page)
+        self.assertIn("Naveed", billing_page)
+        self.assertIn("Rashid", billing_page)
+
+        with closing(connect_database(self.database)) as connection:
+            first_tailor = connection.execute(
+                "SELECT id FROM tailors WHERE name = 'Naveed'"
+            ).fetchone()[0]
+        line = self.standard_line(revision, tailor_id=first_tailor)
+        response = self.post_bill(
+            tailoring=[line], customer_id=customer["customer_id"], paid="1500.00",
+            key="tailor-web-bill-0001",
+        )
+        self.assertEqual(303, response.status_code)
+
+        detail = self.client.get("/tailoring/1").get_data(as_text=True)
+        self.assertIn("Assigned Tailor", detail)
+        self.assertIn("Naveed", detail)
+        response = self.client.post("/tailoring/1/items/1/tailor", data={
+            "csrf_token": self.csrf(), "tailor_id": second_tailor["id"],
+        })
+        self.assertEqual(303, response.status_code)
+        self.assertIn("#garment-1", response.headers["Location"])
+        updated = self.client.get("/tailoring/1").get_data(as_text=True)
+        self.assertIn("Tailor assignment updated.", updated)
+        self.assertIn("<strong>Rashid</strong>", updated)
+
     def test_tailoring_search_status_list_and_detail_render_immutable_snapshot(self):
         customer = self.customer()
         revision = self.measurements(customer["customer_id"])
@@ -758,7 +806,7 @@ class TailoringWebTests(unittest.TestCase):
         self.assertEqual(400, self.client.get("/tailoring", query_string={"status": "Unknown"}).status_code)
         detail = self.client.get("/tailoring/1").get_data(as_text=True)
         self.assertIn("Immutable measurement snapshot", detail)
-        self.assertIn("Revision 1 &middot; inch", detail)
+        self.assertIn("Saved for this order &middot; inch", detail)
         self.assertIn("40.5 inches", detail)
         self.assertIn("PKR 1,500.00", detail)
         self.assertIn('href="/sales/1"', detail)
