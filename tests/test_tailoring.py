@@ -13,12 +13,14 @@ from shop.inventory import (
     STANDARD_MEASUREMENT_TEMPLATES,
     DomainError,
     add_article,
+    assign_tailor,
     add_brand,
     add_colour,
     bill_outstanding_balance,
     catalogue,
     configure_stitching_rate,
     create_customer,
+    create_tailor,
     customer_account_balance,
     finalize_combined_bill,
     finalize_sale,
@@ -111,10 +113,10 @@ class CustomerTailoringPaymentTests(unittest.TestCase):
             tailoring_notes="Handle carefully", request_key=key, user_id=1,
         )
 
-    def test_schema_v4_customer_sequences_normalized_search_and_duplicate_override(self):
-        self.assertEqual(4, SCHEMA_VERSION)
-        self.assertEqual("measurement-templates-rates-v4", SCHEMA_IDENTITY)
-        self.assertEqual(4, self.conn.execute("PRAGMA user_version").fetchone()[0])
+    def test_schema_v5_customer_sequences_normalized_search_and_duplicate_override(self):
+        self.assertEqual(5, SCHEMA_VERSION)
+        self.assertEqual("tailor-assignments-v5", SCHEMA_IDENTITY)
+        self.assertEqual(5, self.conn.execute("PRAGMA user_version").fetchone()[0])
         inspect_database(self.conn)
         first = create_customer(self.conn, name="Ahmed", primary_mobile="0300 1234567")
         second = create_customer(self.conn, name="Bilal", primary_mobile="0300-1234568")
@@ -269,6 +271,30 @@ class CustomerTailoringPaymentTests(unittest.TestCase):
                 request_key="later-overpayment-001", user_id=1,
             )
         self.assertEqual(1, len(list_payments(self.conn, first["sale_id"])))
+
+    def test_tailors_are_assigned_per_garment_and_can_be_reassigned(self):
+        customer_id = self.customer()
+        first_tailor = create_tailor(self.conn, "Naveed", "03001112222")
+        second_tailor = create_tailor(self.conn, "Rashid")
+        line = self.tailoring_line(customer_id, tailor_id=first_tailor)
+        result = self.combined(
+            customer_id, tailoring_items=[line], paid=250_000,
+            key="tailor-assignment-bill01",
+        )
+
+        order = get_tailoring_order(self.conn, result["tailoring_order_id"])
+        item = order["items"][0]
+        self.assertEqual("Naveed", item["tailor_name"])
+
+        assign_tailor(self.conn, order["id"], item["id"], second_tailor, 1)
+        self.assertEqual(
+            "Rashid",
+            get_tailoring_order(self.conn, order["id"])["items"][0]["tailor_name"],
+        )
+        assign_tailor(self.conn, order["id"], item["id"], None, 1)
+        self.assertIsNone(
+            get_tailoring_order(self.conn, order["id"])["items"][0]["tailor_id"]
+        )
 
     def test_tailoring_measurement_and_financial_snapshots_remain_immutable(self):
         customer_id = self.customer()
