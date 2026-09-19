@@ -162,7 +162,10 @@ class TailoringWebTests(unittest.TestCase):
         })
         self.assertEqual(200, response.status_code)
         tailoring_page = self.client.get("/tailoring").get_data(as_text=True)
-        self.assertIn('href="/tailoring" aria-current="page">Orders</a>', tailoring_page)
+        self.assertIn(
+            'href="/tailoring" aria-current="page">Orders / Collection</a>',
+            tailoring_page,
+        )
 
     def test_customer_search_selection_and_create_return_to_billing(self):
         customer = self.customer()
