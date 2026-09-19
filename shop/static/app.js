@@ -783,6 +783,16 @@
       });
       customerSearch.addEventListener("keydown", (event) => {
         if (event.key === "Escape") hideCustomerResults();
+        if (event.key === "Enter") {
+          event.preventDefault();
+          const first = customerResults.querySelector("button");
+          if (!customerResults.hidden && first) {
+            first.click();
+          } else {
+            window.clearTimeout(customerSearchTimer);
+            loadCustomerResults();
+          }
+        }
         if (event.key === "ArrowDown" && !customerResults.hidden) {
           const first = customerResults.querySelector("button");
           if (first) {
