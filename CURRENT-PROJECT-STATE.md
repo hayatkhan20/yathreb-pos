@@ -58,9 +58,9 @@ This is the concise briefing for routine work. `Clothing-Stitching-Project-Recor
 - Product catalogue management with add, rename, and guarded deletion operations for Products, Brands, Articles, Colours, and Sizes while preserving parent ownership. Open Product appears first; Product-level management is the final, collapsed section.
 - Explicit confirmation of proposed pair/piece units before stock entry.
 - Catalogue hierarchy dropdowns follow each Product's parent-scoped structure and navigate immediately when JavaScript works; Open buttons remain as the server fallback. Each child dropdown offers “+ Add new…”, new records become the selected value, and the next applicable level appears. The selected chain and relevant page position remain intact after open, add, rename, and validation responses.
-- Positive opening and incoming stock entry for valid exact variants, with duplicate-submission protection. Add Stock hierarchy choices cascade automatically, reveal the entry fields only after a complete valid chain, preserve the form after validation errors, and retain an Open selection fallback without JavaScript.
-- Current Stock with parent-scoped cascading filters, one final Apply filters action, refresh-persistent selections, and a server-rendered no-JavaScript fallback.
-- Unit-separated current totals and movement history with rename-safe snapshots.
+- Positive opening and incoming stock entry for valid exact variants, with duplicate-submission protection. Add Stock hierarchy choices cascade automatically, allow Products and each relevant child level to be added in one reusable popup, reveal the entry fields only after a complete valid chain, preserve the form after validation errors, and retain Catalogue/Open selection fallbacks without JavaScript.
+- Current Stock with parent-scoped cascading filters, one final Apply filters action, refresh-persistent selections, product-by-product totals, and a server-rendered no-JavaScript fallback.
+- Product-specific current totals and exact-variant movement history with rename-safe snapshots.
 - Phase 2A backend sales and billing foundation: one or many exact variants per PKR bill, current default prices per variant with bill-time overrides, fixed bill discount, no tax, and server-derived totals. A fully paid product-only bill may remain anonymous; an outstanding balance requires an existing Customer record.
 - Unique `BILL-########` numbers and UTC timestamps, immutable sale-time hierarchy/price snapshots, atomic negative sale movements, duplicate-submission protection, and deliberately visible negative stock balances.
 - Schema version 4 (`measurement-templates-rates-v4`) fails explicitly against incompatible schema-version-3 databases so they can be preserved and recreated separately.
@@ -106,4 +106,4 @@ Set-Location 'C:\Users\hanif\Desktop\Yathreb-Safeer\Inventory'
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-Expected result: 122 tests run and the final result is `OK`. Codex must report this as unverified until the user supplies the output.
+Expected result: 124 tests run and the final result is `OK`. Codex must report this as unverified until the user supplies the output.
