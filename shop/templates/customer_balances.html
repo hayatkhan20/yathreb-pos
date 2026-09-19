@@ -2,6 +2,11 @@
 {% block title %}Customer Balances &middot; Shop management{% endblock %}
 {% block content %}
 <div class="page-heading"><div><p class="eyebrow">Customer accounts</p><h1>Customer Balances</h1><p>Review balances derived from finalized bills, initial payments and immutable later payments.</p></div></div>
+
+<nav class="page-tabs" aria-label="Customer sections">
+  <a href="{{ url_for('web.customers') }}">Customer records</a>
+  <a href="{{ url_for('web.customer_balances') }}" aria-current="page">Balances &amp; payments</a>
+</nav>
 {% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
 <section class="card" aria-labelledby="balance-search-heading"><h2 id="balance-search-heading">Find a customer account</h2><form method="get" action="{{ url_for('web.customer_balances') }}" class="filter-grid">
   <div class="field"><label for="balance-search">Customer ID, name, or mobile</label><input id="balance-search" type="search" name="q" value="{{ search }}" maxlength="120" autocomplete="off"></div>

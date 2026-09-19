@@ -433,6 +433,7 @@ def _tailoring_selection(source, customer):
         "categories": categories,
         "category": category,
         "custom_description": custom_description,
+        "definition": STANDARD_MEASUREMENT_TEMPLATES.get(category),
         "rate": rate,
         "measurement": measurement,
     }
@@ -586,6 +587,14 @@ def _render_billing(
     if tailoring_draft:
         promised_date = tailoring_draft[0]["promised_date"] or promised_date
     today = datetime.now(SHOP_TIMEZONE).date().isoformat()
+    sale_mode = source.get("sale_mode", "")
+    if sale_mode not in ("product", "combined", "tailoring"):
+        if quoted_tailoring and quoted_items:
+            sale_mode = "combined"
+        elif quoted_tailoring:
+            sale_mode = "tailoring"
+        else:
+            sale_mode = "product"
 
     context.update(
         error=error,
@@ -619,6 +628,7 @@ def _render_billing(
         line_price=line_price,
         default_price=default_price,
         product_confirmation=product_confirmation,
+        sale_mode=sale_mode,
     )
     return render_template("billing.html", **context), status
 
@@ -750,6 +760,36 @@ def stock():
         ),
         code=303,
     )
+
+
+def _billing_customer_option(customer):
+    return {
+        "id": customer["id"],
+        "customer_number": customer["customer_number"],
+        "name": customer["name"],
+        "primary_mobile": customer["primary_mobile"],
+    }
+
+
+@bp.route("/billing/customers", methods=["GET", "POST"])
+def billing_customers():
+    if request.method == "GET":
+        query = request.args.get("q", "")
+        if not query.strip():
+            return jsonify(customers=[])
+        try:
+            rows = search_customers(get_db(), query, limit=8)
+        except DomainError as caught:
+            return jsonify(error=str(caught)), 400
+        return jsonify(customers=[_billing_customer_option(row) for row in rows])
+
+    form_values = _customer_values(request.form)
+    try:
+        saved = create_customer(get_db(), **form_values)
+        customer = get_customer(get_db(), saved["customer_id"])
+    except DomainError as caught:
+        return jsonify(error=str(caught)), 400
+    return jsonify(customer=_billing_customer_option(customer)), 201
 
 
 @bp.route("/billing", methods=["GET", "POST"])
@@ -912,6 +952,14 @@ def billing():
                 )
             if category in STANDARD_MEASUREMENT_TEMPLATES and form.get("tailoring_price", ""):
                 raise DomainError("A standard garment's configured rate cannot be overridden per order.")
+            tailoring_quantity = form.get("tailoring_quantity", "").strip()
+            if (
+                not re.fullmatch(r"[0-9]{1,12}", tailoring_quantity)
+                or int(tailoring_quantity) < 1
+            ):
+                raise DomainError(
+                    "Enter the tailoring quantity as a whole number greater than zero."
+                )
             promised_date = _validated_promised_date(form.get("promised_date", ""))
             if tailoring_draft and any(
                 item.get("promised_date") != promised_date for item in tailoring_draft
@@ -931,7 +979,7 @@ def billing():
             candidate = tailoring_draft + [{
                 "garment_category": category,
                 "custom_description": selection["custom_description"],
-                "quantity": form.get("tailoring_quantity", ""),
+                "quantity": tailoring_quantity,
                 "stitching_rate": stitching_rate,
                 "cloth_source": cloth_source,
                 "source_product_line": source_product_line,
@@ -945,7 +993,7 @@ def billing():
                 get_db(), customer["id"], candidate, quoted_products
             )
             source = form.to_dict(flat=True)
-            source["tailoring_quantity"] = ""
+            source["tailoring_quantity"] = "1"
             source["tailoring_price"] = ""
             return _render_billing(
                 source, draft=draft,
@@ -1298,8 +1346,14 @@ def measurement_customers():
 def customer_measurements(customer_id):
     customer = _customer_or_404(customer_id)
     category = request.values.get("category", next(iter(STANDARD_MEASUREMENT_TEMPLATES)))
+    wants_json = (
+        request.method == "POST"
+        and request.accept_mimetypes.best == "application/json"
+    )
     valid_categories = set(STANDARD_MEASUREMENT_TEMPLATES) | {CUSTOM_GARMENT_CATEGORY}
     if category not in valid_categories:
+        if wants_json:
+            return jsonify(error="Choose one of the available measurement templates."), 400
         if request.method == "POST":
             return _measurement_page(
                 customer, next(iter(STANDARD_MEASUREMENT_TEMPLATES)), form=request.form,
@@ -1379,9 +1433,17 @@ def customer_measurements(customer_id):
             custom_description=custom_description, notes=request.form.get("notes", ""),
         )
     except DomainError as caught:
+        if wants_json:
+            return jsonify(error=str(caught)), 400
         return _measurement_page(
             customer, category, form=request.form, error=str(caught), status=400
         )
+    if wants_json:
+        return jsonify(
+            category=category,
+            revision_id=saved["revision_id"],
+            revision_number=saved["revision_number"],
+        ), 201
     return redirect(
         url_for(
             "web.customer_measurements", customer_id=customer_id, category=category,

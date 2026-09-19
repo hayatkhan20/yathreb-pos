@@ -113,7 +113,11 @@ class ManagementReportingTests(unittest.TestCase):
     def test_sidebar_has_management_order_mobile_toggle_and_active_state(self):
         self.sign_in()
         page = self.client.get("/dashboard").get_data(as_text=True)
-        labels = ("Dashboard", "Catalogue", "Add Stock", "Current Stock", "Billing", "Sales", "Logout")
+        labels = (
+            "Dashboard", "Billing", "Orders / Collection", "Customers",
+            "Current Stock", "Add Stock", "Sales", "Setup",
+            "Catalogue", "Measurements", "Stitching Rates", "Logout",
+        )
         positions = [page.index(f">{label}<") for label in labels]
         self.assertEqual(sorted(positions), positions)
         self.assertIn('data-sidebar-toggle', page)

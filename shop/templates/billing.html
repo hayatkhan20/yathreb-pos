@@ -39,6 +39,7 @@
   data-billing-form
   data-children-url="{{ url_for('web.catalogue_children') }}"
   data-variant-url="{{ url_for('web.billing_variant') }}"
+  data-customer-url="{{ url_for('web.billing_customers') }}"
 >
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="request_key" value="{{ request_key }}">
@@ -46,6 +47,32 @@
   <input type="hidden" name="tailoring_items" value="{{ tailoring_items }}" data-tailoring-items>
   <input type="hidden" name="customer_id" value="{{ customer.id if customer else '' }}" data-billing-customer-id>
   <input type="hidden" name="paid_was_edited" value="{{ 'true' if paid_was_supplied else 'false' }}" data-paid-was-edited>
+
+  <section class="card sale-type-card" aria-labelledby="sale-type-heading" data-sale-type-selector>
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Start here</p>
+        <h2 id="sale-type-heading">What is the customer buying?</h2>
+        <p class="section-note">Choose one option to show only the fields needed for this sale. Existing bill items are always kept in the Current bill.</p>
+      </div>
+    </div>
+    <div class="sale-type-grid">
+      <label class="sale-type-option">
+        <input type="radio" name="sale_mode" value="product" data-sale-mode{% if sale_mode == 'product' %} checked{% endif %}>
+        <span><strong>Products only</strong><small>Fabric, ready-made items, footwear, or accessories.</small></span>
+      </label>
+      <label class="sale-type-option">
+        <input type="radio" name="sale_mode" value="combined" data-sale-mode{% if sale_mode == 'combined' %} checked{% endif %}>
+        <span><strong>Products + stitching</strong><small>Sell fabric or another product and add stitching to the same bill.</small></span>
+      </label>
+      <label class="sale-type-option">
+        <input type="radio" name="sale_mode" value="tailoring" data-sale-mode{% if sale_mode == 'tailoring' %} checked{% endif %}>
+        <span><strong>Stitching only</strong><small>The customer brings their own cloth or uses an earlier Fabric purchase.</small></span>
+      </label>
+    </div>
+    <p class="form-hint" data-sale-mode-status aria-live="polite"></p>
+    <noscript><p class="form-hint">All sections remain available below when JavaScript is unavailable.</p></noscript>
+  </section>
 
   <section class="card" aria-labelledby="billing-customer-heading">
     <div class="section-heading"><div><h2 id="billing-customer-heading">1. Customer</h2><p class="section-note">Required for tailoring or any unpaid balance. A fully paid product-only bill may remain anonymous.</p></div></div>
@@ -55,14 +82,23 @@
         <button type="submit" class="secondary small" name="action" value="clear_customer" formnovalidate>Clear customer</button>
       </div>
     {% endif %}
-    <div class="filter-grid">
-      <div class="field"><label for="billing-customer-search">Customer ID, name, or mobile</label><input id="billing-customer-search" type="search" name="customer_query" value="{{ customer_query }}" maxlength="120" autocomplete="off"></div>
-      <div class="form-actions"><button type="submit" class="secondary" name="action" value="search_customer" formnovalidate>Search customers</button><a class="button secondary" href="{{ url_for('web.customers', return_to='billing') }}">Add new customer</a></div>
+    <div class="filter-grid billing-customer-row">
+      <div class="field customer-search-field">
+        <label for="billing-customer-search">Customer ID, name, or mobile</label>
+        <input id="billing-customer-search" type="search" name="customer_query" value="{{ customer_query }}" maxlength="120" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="billing-customer-results" aria-expanded="{{ 'true' if customer_matches else 'false' }}" data-billing-customer-search>
+        <p class="form-hint" aria-live="polite" data-billing-customer-status>{% if customer_query and not customer_matches %}No matching customers found.{% else %}Type at least 2 characters to see matching customers.{% endif %}</p>
+        <div id="billing-customer-results" class="customer-match-list customer-suggestions" role="listbox" aria-label="Matching customers" data-billing-customer-results{% if not customer_matches %} hidden{% endif %}>
+          {% for match in customer_matches %}<button type="submit" class="customer-match" name="action" value="select_customer:{{ match.id }}" formnovalidate role="option"><strong>{{ match.customer_number }} &middot; {{ match.name }}</strong><span>{{ match.primary_mobile }}</span></button>{% endfor %}
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="secondary" name="action" value="search_customer" formnovalidate data-customer-search-fallback>Search customers</button>
+        <a class="button secondary" href="{{ url_for('web.customers', return_to='billing') }}" data-open-customer-dialog>Add new customer</a>
+      </div>
     </div>
-    {% if customer_matches %}<div class="customer-match-list" aria-label="Matching customers">{% for match in customer_matches %}<button type="submit" class="customer-match" name="action" value="select_customer:{{ match.id }}" formnovalidate><strong>{{ match.customer_number }} &middot; {{ match.name }}</strong><span>{{ match.primary_mobile }}</span></button>{% endfor %}</div>{% elif customer_query %}<p class="empty-copy">No customers match &ldquo;{{ customer_query }}&rdquo;.</p>{% endif %}
   </section>
 
-  <section class="card" aria-labelledby="billing-selection-heading">
+  <section class="card" aria-labelledby="billing-selection-heading" data-sale-mode-section="products">
     <div class="section-heading">
       <div>
         <h2 id="billing-selection-heading">2. Add products</h2>
@@ -122,7 +158,7 @@
   </section>
 
   {% if selected_product and not selected_product.unit %}
-    <section class="card attention" data-billing-unit-warning>
+    <section class="card attention" data-billing-unit-warning data-sale-mode-section="products">
       <h2>Confirm this Product&rsquo;s stock unit first</h2>
       <p>Billing is unavailable until the proposed {{ unit_labels[selected_product.suggested_unit] }} unit is confirmed in the catalogue.</p>
       <a class="button secondary" href="{{ url_for('web.catalogue_page', product_id=product_id, _anchor='product-editor') }}">Review Product unit</a>
@@ -132,6 +168,7 @@
   <section
     class="card variant-card"
     data-billing-variant
+    data-sale-mode-section="products"
     data-variant-ready="{{ 'true' if selected_variant else 'false' }}"
     data-variant-id="{{ selected_variant.id if selected_variant else '' }}"
     data-product="{{ selected_variant.product if selected_variant else '' }}"
@@ -180,9 +217,9 @@
     </div>
   </section>
 
-  {% if variant_error %}<div class="alert error" data-variant-error role="alert">{{ variant_error }}</div>{% else %}<div class="alert error" data-variant-error role="alert" hidden></div>{% endif %}
+  {% if variant_error %}<div class="alert error" data-variant-error data-sale-mode-section="products" role="alert">{{ variant_error }}</div>{% else %}<div class="alert error" data-variant-error data-sale-mode-section="products" role="alert" hidden></div>{% endif %}
 
-  <section class="card tailoring-addition" aria-labelledby="tailoring-add-heading" data-tailoring-addition>
+  <section class="card tailoring-addition" aria-labelledby="tailoring-add-heading" data-tailoring-addition data-sale-mode-section="tailoring">
     <div class="section-heading"><div><h2 id="tailoring-add-heading">3. Add tailoring</h2><p class="section-note">Tailoring requires a selected customer, saved measurements and one promised date for the complete tailoring order.</p></div></div>
     <div class="filter-grid">
       <div class="field"><label for="tailoring-category">Garment</label><select id="tailoring-category" name="tailoring_category" data-tailoring-refresh>
@@ -195,11 +232,21 @@
       <div class="alert attention">Select an existing customer above before adding tailoring.</div>
     {% else %}
       <div class="tailoring-readiness">
-        <div><span>Stitching rate</span>{% if tailoring_selection.category == 'Other / Custom Item' %}<strong>Manual price required</strong>{% elif tailoring_selection.rate %}<strong>PKR {{ tailoring_selection.rate.rate|pkr }} per piece</strong><small>Configured revision {{ tailoring_selection.rate.revision_number }}</small>{% else %}<strong class="negative-value">Not configured</strong><a href="{{ url_for('web.stitching_rates') }}">Configure Stitching Rates</a>{% endif %}</div>
-        <div><span>Measurements</span>{% if tailoring_selection.measurement %}<strong>Revision {{ tailoring_selection.measurement.revision_number }}</strong><small>Saved {{ tailoring_selection.measurement.created_at[:10] }}{% if tailoring_selection.measurement.custom_description %} &middot; {{ tailoring_selection.measurement.custom_description }}{% endif %}</small>{% else %}<strong class="negative-value">Missing matching measurements</strong><a href="{{ url_for('web.customer_measurements', customer_id=customer.id, category=tailoring_selection.category) }}">Add measurements</a>{% endif %}</div>
+        <div><span>Stitching rate</span>{% if tailoring_selection.category == 'Other / Custom Item' %}<strong>Manual price required</strong>{% elif tailoring_selection.rate %}<strong>PKR {{ tailoring_selection.rate.rate|pkr }} per piece</strong><small>Current standard rate</small>{% else %}<strong class="negative-value">Not configured</strong><a href="{{ url_for('web.stitching_rates') }}">Configure Stitching Rates</a>{% endif %}</div>
+        <div>
+          <span>Measurements</span>
+          {% if tailoring_selection.measurement %}
+            <strong>Current measurements</strong>
+            <small>Saved {{ tailoring_selection.measurement.created_at[:10] }}{% if tailoring_selection.measurement.custom_description %} &middot; {{ tailoring_selection.measurement.custom_description }}{% endif %}</small>
+            <a href="{{ url_for('web.customer_measurements', customer_id=customer.id, category=tailoring_selection.category) }}" data-open-measurement-dialog>Update measurements</a>
+          {% else %}
+            <strong class="negative-value">Missing matching measurements</strong>
+            <a href="{{ url_for('web.customer_measurements', customer_id=customer.id, category=tailoring_selection.category) }}" data-open-measurement-dialog>Add measurements</a>
+          {% endif %}
+        </div>
       </div>
       <div class="field-row">
-        <div class="field"><label for="tailoring-quantity">Quantity <span class="optional">whole pieces</span></label><input id="tailoring-quantity" name="tailoring_quantity" value="{{ form.get('tailoring_quantity', '') }}" inputmode="numeric" placeholder="1"></div>
+        <div class="field"><label for="tailoring-quantity">Quantity <span class="optional">whole pieces</span></label><input id="tailoring-quantity" name="tailoring_quantity" value="{{ form.get('tailoring_quantity', '') or '1' }}" inputmode="numeric" min="1" step="1" placeholder="1"></div>
         {% if tailoring_selection.category == 'Other / Custom Item' %}<div class="field"><label for="tailoring-price">Stitching price <span class="optional">PKR per piece</span></label><input id="tailoring-price" name="tailoring_price" value="{{ form.get('tailoring_price', '') }}" inputmode="decimal" placeholder="0.00"></div>{% endif %}
       </div>
       <div class="field"><label for="promised-date">Promised delivery date</label><input id="promised-date" type="date" name="promised_date" value="{{ promised_date }}" min="{{ today }}"></div>
@@ -255,7 +302,7 @@
               <td><button type="submit" class="secondary small" name="action" value="remove_line:{{ loop.index0 }}" formnovalidate data-remove-bill-line="{{ loop.index0 }}">Remove</button></td>
             </tr>
           {% endfor %}
-          {% for item in quoted_tailoring %}<tr data-bill-line data-line-type="tailoring" data-summary-description="Stitching &middot; {{ item.description }}" data-summary-quantity="{{ item.quantity|quantity }} piece{{ '' if item.quantity == 1000 else 's' }}" data-line-total="{{ item.line_total }}"><td>Tailoring</td><td><strong>{{ item.description }}</strong><span class="form-hint">Measurements revision {{ item.measurement_revision_number }}</span></td><td class="number">{{ item.quantity|quantity }} piece{{ '' if item.quantity == 1000 else 's' }}</td><td>Stitching / piece</td><td class="number">PKR {{ item.stitching_rate|pkr }}</td><td class="number">PKR {{ item.line_total|pkr }}</td><td>{{ 'Purchased from shop' if item.cloth_source == 'shop' else 'Customer-provided' }}<br><span class="form-hint">{{ item.cloth_link_label }}</span><br>Promised: {{ item.promised_date }}</td><td><button type="submit" class="secondary small" name="action" value="remove_tailoring:{{ loop.index0 }}" formnovalidate>Remove</button></td></tr>{% endfor %}
+          {% for item in quoted_tailoring %}<tr data-bill-line data-line-type="tailoring" data-summary-description="Stitching &middot; {{ item.description }}" data-summary-quantity="{{ item.quantity|quantity }} piece{{ '' if item.quantity == 1000 else 's' }}" data-line-total="{{ item.line_total }}"><td>Tailoring</td><td><strong>{{ item.description }}</strong><span class="form-hint">Measurements saved {{ item.measurement_created_at[:10] }}</span></td><td class="number">{{ item.quantity|quantity }} piece{{ '' if item.quantity == 1000 else 's' }}</td><td>Stitching / piece</td><td class="number">PKR {{ item.stitching_rate|pkr }}</td><td class="number">PKR {{ item.line_total|pkr }}</td><td>{{ 'Purchased from shop' if item.cloth_source == 'shop' else 'Customer-provided' }}<br><span class="form-hint">{{ item.cloth_link_label }}</span><br>Promised: {{ item.promised_date }}</td><td><button type="submit" class="secondary small" name="action" value="remove_tailoring:{{ loop.index0 }}" formnovalidate>Remove</button></td></tr>{% endfor %}
           {% if not quoted_items and not quoted_tailoring %}<tr data-empty-bill><td colspan="8" class="empty-state">No items have been added. An empty bill cannot be finalized.</td></tr>{% endif %}
         </tbody>
       </table>
@@ -290,4 +337,101 @@
     </div>
   </section>
 </form>
+
+<dialog class="customer-dialog" aria-labelledby="billing-new-customer-heading" data-customer-dialog>
+  <form method="post" action="{{ url_for('web.billing_customers') }}" class="stacked-form" data-inline-customer-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="customer-dialog-heading">
+      <div><p class="eyebrow">Billing</p><h2 id="billing-new-customer-heading">Add new customer</h2></div>
+      <button type="button" class="secondary small" data-close-customer-dialog aria-label="Close add customer window">Close</button>
+    </div>
+    <p class="section-note">The new customer will be selected for this bill automatically.</p>
+    <div class="alert error" role="alert" tabindex="-1" data-inline-customer-error hidden></div>
+    <div class="field-row">
+      <div class="field"><label for="billing-customer-name">Name</label><input id="billing-customer-name" name="name" maxlength="120" required autocomplete="name"></div>
+      <div class="field"><label for="billing-customer-mobile">Primary mobile</label><input id="billing-customer-mobile" name="primary_mobile" maxlength="40" required inputmode="tel" autocomplete="tel"></div>
+    </div>
+    <div class="field"><label for="billing-customer-alt-mobile">Alternate mobile <span class="optional">optional</span></label><input id="billing-customer-alt-mobile" name="alternate_mobile" maxlength="40" inputmode="tel"></div>
+    <div class="field"><label for="billing-customer-address">Address <span class="optional">optional</span></label><textarea id="billing-customer-address" name="address" maxlength="500" rows="2"></textarea></div>
+    <div class="field"><label for="billing-customer-notes">Notes <span class="optional">optional</span></label><textarea id="billing-customer-notes" name="notes" maxlength="2000" rows="2"></textarea></div>
+    <div class="form-actions">
+      <button type="submit" class="primary" data-save-inline-customer>Add and select customer</button>
+      <button type="button" class="secondary" data-close-customer-dialog>Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+{% if customer %}
+  {% set current_measurement = tailoring_selection.measurement %}
+  <dialog class="customer-dialog measurement-dialog" aria-labelledby="billing-measurement-heading" data-measurement-dialog>
+    <form method="post" action="{{ url_for('web.customer_measurements', customer_id=customer.id) }}" class="stacked-form" data-inline-measurement-form>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="category" value="{{ tailoring_selection.category }}">
+      <div class="customer-dialog-heading">
+        <div>
+          <p class="eyebrow">{{ customer.customer_number }} &middot; {{ customer.name }}</p>
+          <h2 id="billing-measurement-heading">{% if current_measurement %}Update{% else %}Add{% endif %} {{ tailoring_selection.category }} measurements</h2>
+        </div>
+        <button type="button" class="secondary small" data-close-measurement-dialog aria-label="Close measurements window">Close</button>
+      </div>
+      <p class="section-note">These values become the customer&rsquo;s current measurements. Finalized tailoring orders keep their saved measurement snapshot.</p>
+      <div class="alert error" role="alert" tabindex="-1" data-inline-measurement-error hidden></div>
+
+      {% if tailoring_selection.definition %}
+        <fieldset>
+          <legend>Numeric measurements</legend>
+          <div class="measurement-grid">
+            {% for label in tailoring_selection.definition.measurements %}
+              <div class="field">
+                <label for="billing-measurement-{{ loop.index0 }}">{{ label }} (inches)</label>
+                <input id="billing-measurement-{{ loop.index0 }}" name="measurement_{{ loop.index0 }}" value="{% if current_measurement %}{{ current_measurement.measurements.get(label, 0)|quantity }}{% endif %}" type="number" min="0.001" max="10000" step="0.001" inputmode="decimal" required>
+              </div>
+            {% endfor %}
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Style details</legend>
+          <div class="checkbox-grid">
+            {% for label in tailoring_selection.definition.styles %}
+              <label class="checkbox-field" for="billing-style-{{ loop.index0 }}"><input id="billing-style-{{ loop.index0 }}" type="checkbox" name="style_{{ loop.index0 }}" value="true"{% if current_measurement and current_measurement.styles.get(label, false) %} checked{% endif %}> <span>{{ label }}</span></label>
+            {% endfor %}
+          </div>
+        </fieldset>
+      {% else %}
+        <div class="field">
+          <label for="billing-custom-description">Custom item description</label>
+          <input id="billing-custom-description" name="custom_description" value="{{ tailoring_selection.custom_description }}" maxlength="200" required>
+        </div>
+        <fieldset>
+          <legend>Flexible measurements</legend>
+          <p class="section-note">Add only the measurements needed for this custom item.</p>
+          <div class="custom-measurement-list" data-custom-measurements>
+            {% if current_measurement %}
+              {% for label, amount in current_measurement.measurements.items() %}
+                <div class="custom-measurement-row" data-custom-measurement-row>
+                  <div class="field"><label for="custom-name-{{ loop.index0 }}">Measurement name</label><input id="custom-name-{{ loop.index0 }}" name="custom_name" value="{{ label }}" maxlength="80" required></div>
+                  <div class="field"><label for="custom-value-{{ loop.index0 }}">Value (inches)</label><input id="custom-value-{{ loop.index0 }}" name="custom_value" value="{{ amount|quantity }}" type="number" min="0.001" max="10000" step="0.001" inputmode="decimal" required></div>
+                  <button type="button" class="secondary small" data-remove-custom-measurement>Remove</button>
+                </div>
+              {% endfor %}
+            {% else %}
+              <div class="custom-measurement-row" data-custom-measurement-row>
+                <div class="field"><label for="custom-name-0">Measurement name</label><input id="custom-name-0" name="custom_name" maxlength="80" required></div>
+                <div class="field"><label for="custom-value-0">Value (inches)</label><input id="custom-value-0" name="custom_value" type="number" min="0.001" max="10000" step="0.001" inputmode="decimal" required></div>
+                <button type="button" class="secondary small" data-remove-custom-measurement disabled>Remove</button>
+              </div>
+            {% endif %}
+          </div>
+          <button type="button" class="secondary small" data-add-custom-measurement>Add measurement</button>
+        </fieldset>
+      {% endif %}
+
+      <div class="field"><label for="billing-measurement-notes">Note <span class="optional">optional</span></label><textarea id="billing-measurement-notes" name="notes" maxlength="1000" rows="3">{{ current_measurement.notes if current_measurement else '' }}</textarea></div>
+      <div class="form-actions">
+        <button type="submit" class="primary" data-save-inline-measurement>Save current measurements</button>
+        <button type="button" class="secondary" data-close-measurement-dialog>Cancel</button>
+      </div>
+    </form>
+  </dialog>
+{% endif %}
 {% endblock %}

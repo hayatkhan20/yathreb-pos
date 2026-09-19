@@ -162,7 +162,10 @@ class TailoringWebTests(unittest.TestCase):
         })
         self.assertEqual(200, response.status_code)
         tailoring_page = self.client.get("/tailoring").get_data(as_text=True)
-        self.assertIn('href="/tailoring" aria-current="page">Orders</a>', tailoring_page)
+        self.assertIn(
+            'href="/tailoring" aria-current="page">Orders / Collection</a>',
+            tailoring_page,
+        )
 
     def test_customer_search_selection_and_create_return_to_billing(self):
         customer = self.customer()
@@ -216,6 +219,52 @@ class TailoringWebTests(unittest.TestCase):
         self.assertEqual(400, response.status_code)
         self.assertIn("Save matching current measurements", response.get_data(as_text=True))
 
+    def test_tailoring_quantity_defaults_to_one_and_uses_specific_validation(self):
+        customer = self.customer()
+        self.measurements(customer["customer_id"])
+        self.rate()
+        self.sign_in()
+
+        page = self.client.get("/billing", query_string={
+            "customer_id": customer["customer_id"],
+            "sale_mode": "tailoring",
+            "tailoring_category": "Shirt",
+        }).get_data(as_text=True)
+        self.assertIn('name="tailoring_quantity" value="1"', page)
+        self.assertIn("Current measurements", page)
+        self.assertIn(
+            'name="sale_mode" value="tailoring" data-sale-mode checked',
+            page,
+        )
+
+        response = self.client.post("/billing", data={
+            "csrf_token": self.csrf(), "action": "add_tailoring",
+            "request_key": "tailoring-quantity-empty1", "bill_items": "[]",
+            "tailoring_items": "[]", "customer_id": customer["customer_id"],
+            "sale_mode": "tailoring", "tailoring_category": "Shirt",
+            "tailoring_quantity": "", "promised_date": self.promised,
+            "cloth_choice": "customer",
+        })
+        self.assertEqual(400, response.status_code)
+        self.assertIn(
+            "Enter the tailoring quantity as a whole number greater than zero.",
+            response.get_data(as_text=True),
+        )
+
+        response = self.client.post("/billing", data={
+            "csrf_token": self.csrf(), "action": "add_tailoring",
+            "request_key": "tailoring-quantity-valid1", "bill_items": "[]",
+            "tailoring_items": "[]", "customer_id": customer["customer_id"],
+            "sale_mode": "tailoring", "tailoring_category": "Shirt",
+            "tailoring_quantity": "1", "promised_date": self.promised,
+            "cloth_choice": "customer",
+        })
+        page = response.get_data(as_text=True)
+        self.assertEqual(200, response.status_code)
+        self.assertIn("Tailoring item added to the bill draft", page)
+        self.assertIn('name="tailoring_quantity" value="1"', page)
+        self.assertIn("Stitching &middot; Shirt", page)
+
     def test_custom_item_manual_price_and_standard_override_validation(self):
         customer = self.customer()
         custom_revision = self.measurements(
@@ -230,7 +279,8 @@ class TailoringWebTests(unittest.TestCase):
             "tailoring_custom_description": "Curtain alteration",
         }).get_data(as_text=True)
         self.assertIn("Manual price required", page)
-        self.assertIn("Revision 1", page)
+        self.assertIn("Current measurements", page)
+        self.assertNotIn("Configured revision", page)
         self.assertIn("data-tailoring-custom-description", page)
         custom = {
             "garment_category": CUSTOM_GARMENT_CATEGORY,

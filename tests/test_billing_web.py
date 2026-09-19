@@ -122,7 +122,7 @@ class BillingWebTests(unittest.TestCase):
             )["customer_id"]
 
     def test_billing_routes_require_authentication_and_post_requires_csrf(self):
-        for path in ("/billing", "/billing/variant", "/sales", "/sales/1"):
+        for path in ("/billing", "/billing/variant", "/billing/customers", "/sales", "/sales/1"):
             with self.subTest(path=path):
                 response = self.client.get(path)
                 self.assertEqual(302, response.status_code)
@@ -134,6 +134,74 @@ class BillingWebTests(unittest.TestCase):
             data={"action": "finalize", "bill_items": "[]", "request_key": "missing-csrf-sale01"},
         )
         self.assertEqual(400, response.status_code)
+
+    def test_billing_customer_search_dropdown_uses_authenticated_normalized_lookup(self):
+        self.customer("Ahmed Khan", "0300 1234567")
+        self.customer("Ayesha", "0311 7654321")
+        self.sign_in()
+
+        response = self.client.get(
+            "/billing/customers", query_string={"q": "+92 300 1234567"}
+        )
+        self.assertEqual(200, response.status_code)
+        payload = response.get_json()
+        self.assertEqual(1, len(payload["customers"]))
+        self.assertEqual("CUST-000001", payload["customers"][0]["customer_number"])
+        self.assertEqual("Ahmed Khan", payload["customers"][0]["name"])
+
+        page = self.client.get("/billing").get_data(as_text=True)
+        self.assertIn('data-customer-url="/billing/customers"', page)
+        self.assertIn("data-billing-customer-search", page)
+        self.assertIn('role="combobox"', page)
+        self.assertIn("data-billing-customer-results", page)
+        self.assertIn("data-open-customer-dialog", page)
+        self.assertIn('href="/customers?return_to=billing"', page)
+
+        script = self.client.get("/static/app.js").get_data(as_text=True)
+        self.assertIn("async function loadCustomerResults()", script)
+        self.assertIn("submitBillingAction", script)
+        self.assertIn("select_customer:", script)
+
+    def test_billing_inline_customer_creation_validates_and_returns_customer(self):
+        self.sign_in()
+        missing_csrf = self.client.post(
+            "/billing/customers",
+            data={"name": "Ahmed Khan", "primary_mobile": "03001234567"},
+        )
+        self.assertEqual(400, missing_csrf.status_code)
+
+        response = self.client.post("/billing/customers", data={
+            "csrf_token": self.csrf(),
+            "name": "Ahmed Khan",
+            "primary_mobile": "0300 1234567",
+            "alternate_mobile": "0311 7654321",
+            "address": "B-17 Islamabad",
+            "notes": "Created during Billing",
+        })
+        self.assertEqual(201, response.status_code)
+        customer = response.get_json()["customer"]
+        self.assertEqual(1, customer["id"])
+        self.assertEqual("CUST-000001", customer["customer_number"])
+        self.assertEqual("Ahmed Khan", customer["name"])
+
+        duplicate = self.client.post("/billing/customers", data={
+            "csrf_token": self.csrf(),
+            "name": "Duplicate",
+            "primary_mobile": "+92 300 1234567",
+        })
+        self.assertEqual(400, duplicate.status_code)
+        self.assertIn(
+            "already uses this primary mobile",
+            duplicate.get_json()["error"],
+        )
+
+        page = self.client.get("/billing").get_data(as_text=True)
+        self.assertIn("data-customer-dialog", page)
+        self.assertIn("data-inline-customer-form", page)
+        self.assertIn("Add and select customer", page)
+        self.assertIn('name="alternate_mobile"', page)
+        self.assertIn('name="address"', page)
+        self.assertIn('name="notes"', page)
 
     def test_navigation_cascade_hooks_canonical_variant_and_server_fallback(self):
         variant_id, product, brand_id, article_id, colour_id = self.fabric_variant()
@@ -287,6 +355,40 @@ class BillingWebTests(unittest.TestCase):
         self.assertIn("Enter a positive quantity with up to 3 decimal places", page)
         self.assertNotIn("added to the current bill", page)
         self.assertIn('value="stale-value"', page)
+
+    def test_guided_sale_modes_show_only_relevant_sections_with_javascript(self):
+        self.sign_in()
+        page = self.client.get("/billing").get_data(as_text=True)
+        self.assertIn("What is the customer buying?", page)
+        self.assertIn('name="sale_mode" value="product" data-sale-mode checked', page)
+        self.assertIn('name="sale_mode" value="combined" data-sale-mode', page)
+        self.assertIn('name="sale_mode" value="tailoring" data-sale-mode', page)
+        self.assertIn('data-sale-mode-section="products"', page)
+        self.assertIn('data-sale-mode-section="tailoring"', page)
+        self.assertIn("All sections remain available below when JavaScript is unavailable.", page)
+
+        response = self.client.post(
+            "/billing",
+            data={
+                "csrf_token": self.csrf(),
+                "action": "open_selection",
+                "request_key": "billing-mode-preserve1",
+                "bill_items": "[]",
+                "tailoring_items": "[]",
+                "sale_mode": "combined",
+            },
+        )
+        self.assertEqual(200, response.status_code)
+        self.assertIn(
+            'name="sale_mode" value="combined" data-sale-mode checked',
+            response.get_data(as_text=True),
+        )
+
+        script = self.client.get("/static/app.js").get_data(as_text=True)
+        self.assertIn("function applySaleMode()", script)
+        self.assertIn('classList.toggle("sale-mode-hidden"', script)
+        css = self.client.get("/static/app.css").get_data(as_text=True)
+        self.assertIn(".sale-mode-hidden { display: none !important; }", css)
 
     def test_single_line_submission_recalculates_server_totals_and_redirects(self):
         variant_id, _, _, _, _ = self.fabric_variant()

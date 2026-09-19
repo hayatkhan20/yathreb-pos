@@ -133,7 +133,11 @@ class PaymentWebTests(unittest.TestCase):
             "payment-no-csrf01", csrf=False,
         ).status_code)
         page = self.client.get("/customer-balances").get_data(as_text=True)
-        self.assertIn('href="/customer-balances" aria-current="page">Customer Balances</a>', page)
+        self.assertIn('href="/customers" aria-current="page">Customers</a>', page)
+        self.assertIn(
+            'href="/customer-balances" aria-current="page">Balances &amp; payments</a>',
+            page,
+        )
 
     def test_customer_account_totals_across_bills_and_later_payments(self):
         customer = self.customer()
