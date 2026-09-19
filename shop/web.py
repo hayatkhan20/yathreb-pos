@@ -2,11 +2,12 @@
 
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta, timezone
+import hmac
 import json
 import re
 from uuid import uuid4
 
-from flask import Blueprint, abort, g, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, abort, current_app, g, jsonify, redirect, render_template, request, session, url_for
 
 from .db import get_db
 from .inventory import (
@@ -1326,6 +1327,72 @@ def customer_edit(customer_id):
     return render_template(
         "customer_edit.html", customer=customer, form=values, error=error
     ), status
+
+
+@bp.route("/tailor/login", methods=["GET", "POST"])
+def tailor_login():
+    if g.user is not None or session.get("tailor_access") is True:
+        return redirect(url_for("web.tailor_home"))
+    error = None
+    status = 200
+    if request.method == "POST":
+        configured_pin = current_app.config.get("TAILOR_ACCESS_PIN", "")
+        submitted_pin = request.form.get("pin", "")
+        if not configured_pin:
+            error = "Tailor View access is not configured on this computer."
+            status = 503
+        elif not hmac.compare_digest(str(configured_pin), submitted_pin):
+            error = "Incorrect Tailor View PIN."
+            status = 400
+        else:
+            session["tailor_access"] = True
+            return redirect(url_for("web.tailor_home"), code=303)
+    return render_template("tailor_login.html", error=error), status
+
+
+@bp.post("/tailor/logout")
+def tailor_logout():
+    session.pop("tailor_access", None)
+    if g.user is not None:
+        return redirect(url_for("web.dashboard"), code=303)
+    return redirect(url_for("web.tailor_login"), code=303)
+
+
+@bp.get("/tailor")
+def tailor_home():
+    query = request.args.get("q", "")
+    customers = []
+    error = None
+    status = 200
+    if query:
+        try:
+            customers = search_customers(get_db(), query, limit=50)
+        except DomainError as caught:
+            error = str(caught)
+            status = 400
+    return render_template(
+        "tailor_home.html", customers=customers, search=query, error=error
+    ), status
+
+
+@bp.get("/tailor/customers/<int:customer_id>")
+def tailor_customer(customer_id):
+    customer = _customer_or_404(customer_id)
+    revisions = get_measurement_revisions(get_db(), customer_id)
+    current = {}
+    for revision in revisions:
+        current.setdefault(revision["garment_category"], revision)
+    ordered_current = []
+    for category in STANDARD_MEASUREMENT_TEMPLATES:
+        if category in current:
+            ordered_current.append(current[category])
+    if CUSTOM_GARMENT_CATEGORY in current:
+        ordered_current.append(current[CUSTOM_GARMENT_CATEGORY])
+    return render_template(
+        "tailor_customer.html",
+        customer=customer,
+        current_measurements=ordered_current,
+    )
 
 
 @bp.get("/measurements")
