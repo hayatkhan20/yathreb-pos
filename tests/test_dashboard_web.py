@@ -67,38 +67,31 @@ class DashboardWebTests(unittest.TestCase):
         self.assertIn("Start a product, stitching, or combined sale.", page)
         self.assertNotIn("<p class=\"eyebrow\">Management</p>", page)
 
-    def test_dashboard_daily_work_and_stock_actions_use_existing_destinations(self):
+    def test_dashboard_shows_only_essential_daily_destinations(self):
         self.sign_in()
         page = self.client.get("/dashboard").get_data(as_text=True)
         expected_links = {
-            "Find Order / Collection": "/tailoring",
-            "Find Customer": "/customers",
-            "Customer Balances / Receive Payment": "/customer-balances",
+            "Orders / Collection": "/tailoring",
+            "Customers": "/customers",
             "Current Stock": "/",
             "Add Stock": "/stock",
         }
         for label, destination in expected_links.items():
             with self.subTest(label=label):
                 self.assertIn(f'href="{destination}"><strong>{label}</strong>', page)
+        self.assertIn('aria-label="Essential daily actions"', page)
         self.assertIn('aria-label="Daily work"', page)
-        self.assertIn('aria-label="Stock actions"', page)
 
-    def test_dashboard_keeps_every_records_and_setup_destination_in_markup(self):
+    def test_dashboard_keeps_accounts_and_sales_as_compact_secondary_links(self):
         self.sign_in()
         page = self.client.get("/dashboard").get_data(as_text=True)
-        expected_links = {
-            "Sales &amp; Receipts": "/sales",
-            "Daily Sales": "/sales/daily",
-            "Monthly Sales": "/sales/monthly",
-            "Stock History": "/history",
-            "Catalogue": "/catalogue",
-            "Measurements": "/measurements",
-            "Stitching Rates": "/stitching-rates",
-        }
-        self.assertIn('aria-label="Records and Setup"', page)
-        for label, destination in expected_links.items():
-            with self.subTest(label=label):
-                self.assertIn(f'href="{destination}"><strong>{label}</strong>', page)
+        self.assertIn('aria-label="Accounts and records"', page)
+        self.assertIn('href="/customer-balances">Balances / Payments</a>', page)
+        self.assertIn('href="/sales">Sales &amp; Receipts</a>', page)
+        self.assertNotIn("Records and Setup", page)
+        self.assertNotIn("Daily Sales", page)
+        self.assertNotIn("Monthly Sales", page)
+        self.assertNotIn("Stock History", page)
 
 
 if __name__ == "__main__":
