@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{{ order.tailoring_number }} &middot; Tailoring{% endblock %}
 {% block content %}
+{% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+{% if notice %}<div class="alert success" role="status">{{ notice }}</div>{% endif %}
 <div class="page-heading"><div><p class="eyebrow">Finalized tailoring record</p><h1>{{ order.tailoring_number }}</h1><p>Saved order details remain read-only. Payments are recorded separately.</p></div><div class="form-actions">{% if order.outstanding_balance > 0 %}<a class="button primary" href="{{ url_for('web.payment_new', customer_id=order.customer_id, sale_id=order.sale_id) }}">Receive payment</a>{% endif %}<a class="button secondary" href="{{ url_for('web.sale_detail', sale_id=order.sale_id) }}">Open bill / receipt</a><a class="button secondary" href="{{ url_for('web.tailoring_orders') }}">Tailoring orders</a></div></div>
 <section class="card"><div class="section-heading"><h2>Order information</h2><span class="status-badge">{{ order.status }}</span></div><dl class="record-grid">
   <div><dt>Tailoring number</dt><dd>{{ order.tailoring_number }}</dd></div><div><dt>Bill number</dt><dd>{{ order.bill_number }}</dd></div>
@@ -10,11 +12,33 @@
 </dl></section>
 <section class="card"><div class="section-heading"><div><h2>Payment summary</h2><p class="section-note">The original bill values remain unchanged. Current outstanding includes later payments.</p></div>{% if order.outstanding_balance == 0 %}<span class="status-badge">Paid in full</span>{% endif %}</div><dl class="bill-totals"><div><dt>Bill subtotal</dt><dd>PKR {{ order.subtotal|pkr }}</dd></div><div><dt>Discount</dt><dd>PKR {{ order.discount|pkr }}</dd></div><div><dt>Grand total</dt><dd>PKR {{ order.grand_total|pkr }}</dd></div><div><dt>Initial paid / advance</dt><dd>PKR {{ order.paid_amount|pkr }}</dd></div><div><dt>Original remaining</dt><dd>PKR {{ order.remaining_balance|pkr }}</dd></div><div class="grand"><dt>Current outstanding</dt><dd{% if order.outstanding_balance > 0 %} class="negative-value"{% endif %}>PKR {{ order.outstanding_balance|pkr }}</dd></div></dl>{% if order.outstanding_balance > 0 %}<div class="form-actions"><a class="button primary" href="{{ url_for('web.payment_new', customer_id=order.customer_id, sale_id=order.sale_id) }}">Receive payment</a><a class="button secondary" href="{{ url_for('web.customer_detail', customer_id=order.customer_id) }}">Open customer account</a></div>{% endif %}</section>
 <section class="card" aria-labelledby="garment-items-heading"><h2 id="garment-items-heading">Garment items</h2><div class="tailoring-item-list">
-{% for item in order["items"] %}<article class="tailoring-record-item"><div class="section-heading"><h3>{{ item.custom_description or item.garment_category }}</h3><strong>PKR {{ item.line_total|pkr }}</strong></div><dl class="record-grid">
-  <div><dt>Quantity</dt><dd>{{ item.quantity|quantity }} pieces</dd></div><div><dt>Stitching rate</dt><dd>PKR {{ item.stitching_rate|pkr }} per piece</dd></div>
-  <div><dt>Cloth source</dt><dd>{{ 'Purchased from shop' if item.cloth_source == 'shop' else 'Customer-provided' }}</dd></div>
-  <div><dt>Linked product</dt><dd>{% if item.source_sale_item_id %}{{ item.source_bill_number }} &middot; {{ item.source_product }} &middot; {{ item.source_brand }}{% if item.source_article %} &middot; {{ item.source_article }}{% endif %} &middot; {{ item.source_colour }}{% if item.source_size %} &middot; {{ item.source_size }}{% endif %}{% else %}Not applicable{% endif %}</dd></div>
-  <div><dt>Measurement revision</dt><dd>Revision {{ item.measurement_revision_number }} &middot; {{ item.measurement_unit }}</dd></div><div><dt>Measurement note</dt><dd class="preserve-lines">{{ item.measurement_notes or 'No note recorded.' }}</dd></div>
-</dl><details class="history-panel"><summary><strong>Immutable measurement snapshot</strong><span>View details</span></summary><dl class="record-grid">{% for label, value in item["measurements"].items() %}<div><dt>{{ label }}</dt><dd>{{ value|quantity }} inches</dd></div>{% endfor %}</dl>{% if item["styles"] %}<ul class="plain-list">{% for label, selected in item["styles"].items() %}<li><strong>{{ label }}:</strong> {{ 'Yes' if selected else 'No' }}</li>{% endfor %}</ul>{% endif %}</details></article>{% endfor %}
+{% for item in order["items"] %}
+<article class="tailoring-record-item" id="garment-{{ item.id }}">
+  <div class="section-heading"><h3>{{ item.custom_description or item.garment_category }}</h3><strong>PKR {{ item.line_total|pkr }}</strong></div>
+  <dl class="record-grid">
+    <div><dt>Quantity</dt><dd>{{ item.quantity|quantity }} pieces</dd></div>
+    <div><dt>Stitching rate</dt><dd>PKR {{ item.stitching_rate|pkr }} per piece</dd></div>
+    <div><dt>Assigned Tailor</dt><dd><strong>{{ item.tailor_name or 'Unassigned' }}</strong>{% if item.tailor_mobile %}<br>{{ item.tailor_mobile }}{% endif %}</dd></div>
+    <div><dt>Cloth source</dt><dd>{{ 'Purchased from shop' if item.cloth_source == 'shop' else 'Customer-provided' }}</dd></div>
+    <div><dt>Linked product</dt><dd>{% if item.source_sale_item_id %}{{ item.source_bill_number }} &middot; {{ item.source_product }} &middot; {{ item.source_brand }}{% if item.source_article %} &middot; {{ item.source_article }}{% endif %} &middot; {{ item.source_colour }}{% if item.source_size %} &middot; {{ item.source_size }}{% endif %}{% else %}Not applicable{% endif %}</dd></div>
+    <div><dt>Current measurements</dt><dd>Saved for this order &middot; {{ item.measurement_unit }}</dd></div>
+    <div class="record-wide"><dt>Measurement note</dt><dd class="preserve-lines">{{ item.measurement_notes or 'No note recorded.' }}</dd></div>
+  </dl>
+  <form method="post" action="{{ url_for('web.tailoring_item_tailor', tailoring_order_id=order.id, tailoring_item_id=item.id) }}" class="tailor-assignment-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field">
+      <label for="tailor-item-{{ item.id }}">Assign or change Tailor</label>
+      <select id="tailor-item-{{ item.id }}" name="tailor_id">
+        <option value="">Unassigned</option>
+        {% if item.tailor_id and not item.tailor_active %}<option value="{{ item.tailor_id }}" selected>{{ item.tailor_name }} (inactive)</option>{% endif %}
+        {% for tailor in tailors %}<option value="{{ tailor.id }}"{% if item.tailor_id == tailor.id %} selected{% endif %}>{{ tailor.name }}{% if tailor.mobile %} &middot; {{ tailor.mobile }}{% endif %}</option>{% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="primary small">Save Tailor</button>
+    {% if item.quantity > 1000 %}<span class="form-hint">This assignment applies to all {{ item.quantity|quantity }} pieces in this garment line.</span>{% endif %}
+  </form>
+  <details class="history-panel"><summary><strong>Immutable measurement snapshot</strong><span>View details</span></summary><dl class="record-grid">{% for label, value in item["measurements"].items() %}<div><dt>{{ label }}</dt><dd>{{ value|quantity }} inches</dd></div>{% endfor %}</dl>{% if item["styles"] %}<ul class="plain-list">{% for label, selected in item["styles"].items() %}<li><strong>{{ label }}:</strong> {{ 'Yes' if selected else 'No' }}</li>{% endfor %}</ul>{% endif %}</details>
+</article>
+{% endfor %}
 </div></section>
 {% endblock %}
