@@ -289,7 +289,7 @@ class WebFoundationTests(unittest.TestCase):
         with closing(connect_database(self.database)) as connection:
             self.assertEqual([], list_stock(connection))
 
-    def test_current_stock_summarizes_each_product_separately(self):
+    def test_current_stock_summarizes_each_brand_within_its_product(self):
         fabric, fabric_brand, _, article, _, fabric_colour, _ = self.make_fabric_catalogue()
         sized, sized_brand, _, sized_colour, _, sized_size, _ = self.make_sized_catalogue()
         with closing(connect_database(self.database)) as connection:
@@ -318,13 +318,16 @@ class WebFoundationTests(unittest.TestCase):
             self.assertEqual(303, response.status_code)
 
         page = self.client.get("/").get_data(as_text=True)
-        self.assertIn("Product totals", page)
-        self.assertIn("<span>Fabric</span><strong>7.5 metres</strong>", page)
+        self.assertIn("Product and Brand totals", page)
         self.assertIn(
-            f"<span>{sized['name']}</span><strong>3 pairs</strong>",
+            "<span>Fabric &middot; Yathreb</span><strong>7.5 metres</strong>",
             page,
         )
-        self.assertEqual(2, page.count("data-stock-product-total"))
+        self.assertIn(
+            f"<span>{sized['name']} &middot; Yathreb</span><strong>3 pairs</strong>",
+            page,
+        )
+        self.assertEqual(2, page.count("data-stock-brand-total"))
 
     def test_add_stock_can_create_each_catalogue_level_inline(self):
         self.sign_in()
