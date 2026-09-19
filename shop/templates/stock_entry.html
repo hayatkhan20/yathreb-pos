@@ -30,6 +30,7 @@
     data-stock-entry-selection
     data-children-url="{{ url_for('web.catalogue_children') }}"
     data-catalogue-url="{{ url_for('web.catalogue_page') }}"
+    data-catalogue-create-url="{{ url_for('web.stock_catalogue') }}"
   >
     <div class="field">
       <label for="product_id">Product</label>
@@ -45,6 +46,7 @@
           >{{ item.name }}</option>
         {% endfor %}
       </select>
+      <a class="stock-catalogue-link" href="{{ url_for('web.catalogue_page', _anchor='products-section') }}" data-stock-catalogue-add="product">+ Add new Product</a>
     </div>
     <div class="field" data-stock-entry-field="brand"{% if not selected_product %} hidden{% endif %}>
       <label for="brand_id">Brand</label>
@@ -52,6 +54,7 @@
         <option value="">Choose brand</option>
         {% for item in brands %}<option value="{{ item.id }}"{% if brand_id == item.id %} selected{% endif %}>{{ item.name }}</option>{% endfor %}
       </select>
+      <a class="stock-catalogue-link" href="{{ url_for('web.catalogue_page', product_id=product_id or '', _anchor='brands-section') }}" data-stock-catalogue-add="brand">+ Add new Brand</a>
     </div>
     <div class="field" data-stock-entry-field="article"{% if not (needs_article and selected_brand) %} hidden{% endif %}>
       <label for="article_id">Article</label>
@@ -59,6 +62,7 @@
         <option value="">Choose article</option>
         {% for item in articles %}<option value="{{ item.id }}"{% if article_id == item.id %} selected{% endif %}>{{ item.name }}</option>{% endfor %}
       </select>
+      <a class="stock-catalogue-link" href="{{ url_for('web.catalogue_page', product_id=product_id or '', brand_id=brand_id or '', _anchor='articles-section') }}" data-stock-catalogue-add="article">+ Add new Article</a>
     </div>
     <div class="field" data-stock-entry-field="colour"{% if not (selected_brand and (not needs_article or selected_article)) %} hidden{% endif %}>
       <label for="colour_id">Colour</label>
@@ -66,6 +70,7 @@
         <option value="">Choose colour</option>
         {% for item in colours %}<option value="{{ item.id }}"{% if colour_id == item.id %} selected{% endif %}>{{ item.name }}</option>{% endfor %}
       </select>
+      <a class="stock-catalogue-link" href="{{ url_for('web.catalogue_page', product_id=product_id or '', brand_id=brand_id or '', article_id=article_id or '', _anchor='colours-section') }}" data-stock-catalogue-add="colour">+ Add new Colour</a>
     </div>
     <div class="field" data-stock-entry-field="size"{% if not (needs_size and selected_colour) %} hidden{% endif %}>
       <label for="size_id">Size</label>
@@ -73,6 +78,7 @@
         <option value="">Choose size</option>
         {% for item in sizes %}<option value="{{ item.id }}"{% if size_id == item.id %} selected{% endif %}>{{ item.name }}</option>{% endfor %}
       </select>
+      <a class="stock-catalogue-link" href="{{ url_for('web.catalogue_page', product_id=product_id or '', brand_id=brand_id or '', colour_id=colour_id or '', _anchor='sizes-section') }}" data-stock-catalogue-add="size">+ Add new Size</a>
     </div>
     <div class="form-actions" data-stock-entry-fallback>
       <button type="submit" class="secondary">Open selection</button>
@@ -153,4 +159,45 @@
     <button type="submit" class="primary">Save stock entry</button>
   </form>
 </section>
+
+<dialog id="stock-catalogue-dialog" class="customer-dialog stock-catalogue-dialog" data-stock-catalogue-dialog>
+  <div class="customer-dialog-heading">
+    <div>
+      <p class="eyebrow">Catalogue</p>
+      <h2 data-stock-catalogue-heading>Add catalogue item</h2>
+    </div>
+    <button type="button" class="secondary small" data-close-stock-catalogue-dialog>Close</button>
+  </div>
+  <p class="section-note" data-stock-catalogue-parent></p>
+  <div class="alert error" role="alert" data-stock-catalogue-error hidden></div>
+  <form method="post" action="{{ url_for('web.stock_catalogue') }}" class="stacked-form" data-stock-catalogue-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="kind" value="">
+    <div class="field">
+      <label for="stock-catalogue-name" data-stock-catalogue-name-label>Name</label>
+      <input id="stock-catalogue-name" name="name" maxlength="120" required autocomplete="off">
+    </div>
+    <div class="field-row" data-stock-product-fields hidden>
+      <div class="field">
+        <label for="stock-product-structure">Product structure</label>
+        <select id="stock-product-structure" name="classification" disabled>
+          <option value="colour">Brand and colour</option>
+          <option value="colour_size">Brand, colour and size</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="stock-product-unit">Stock unit</label>
+        <select id="stock-product-unit" name="unit" disabled>
+          <option value="piece">Pieces</option>
+          <option value="pair">Pairs</option>
+        </select>
+      </div>
+    </div>
+    <p class="form-hint" data-stock-product-note hidden>Fabric already exists as the special Product that supports Articles and metres.</p>
+    <div class="form-actions">
+      <button type="submit" class="primary" data-save-stock-catalogue>Save and continue</button>
+      <button type="button" class="secondary" data-close-stock-catalogue-dialog>Cancel</button>
+    </div>
+  </form>
+</dialog>
 {% endblock %}
