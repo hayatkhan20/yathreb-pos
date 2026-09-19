@@ -161,6 +161,9 @@ class BillingWebTests(unittest.TestCase):
         self.assertIn("async function loadCustomerResults()", script)
         self.assertIn("submitBillingAction", script)
         self.assertIn("select_customer:", script)
+        self.assertIn('billingScrollKey = "yathreb-billing-scroll-y"', script)
+        self.assertIn('actionInput.value === "add_tailoring"', script)
+        self.assertNotIn("confirmation.scrollIntoView", script)
 
     def test_billing_inline_customer_creation_validates_and_returns_customer(self):
         self.sign_in()
