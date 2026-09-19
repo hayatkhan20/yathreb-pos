@@ -31,41 +31,105 @@ def new_password():
     return generate_password_hash(password, method="scrypt")
 
 
-def inspect_database(conn):
+LEGACY_SCHEMA_VERSION = 4
+LEGACY_SCHEMA_IDENTITY = "measurement-templates-rates-v4"
+BASE_REQUIRED_TABLES = {
+    "products", "brands", "articles", "colours", "sizes", "variants",
+    "stock_movements", "sales", "sale_items", "bill_sequence",
+    "users", "settings", "login_guard", "customers", "customer_sequence",
+    "measurement_profiles", "measurement_revisions", "tailoring_orders",
+    "tailoring_items", "tailoring_sequence", "stitching_rate_revisions",
+    "payments", "payment_sequence",
+}
+TAILOR_REQUIRED_TABLES = {"tailors", "tailoring_item_assignments"}
+
+
+def _inspect_foundation(conn, expected_version, expected_identity, required_tables):
     found_version = conn.execute("PRAGMA user_version").fetchone()[0]
-    if found_version != SCHEMA_VERSION:
+    if found_version != expected_version:
         raise ValueError(
-            f"Database schema version {found_version} does not match required version {SCHEMA_VERSION}; "
-            "preserve it and initialize a separate database."
+            f"Database schema version {found_version} does not match required version "
+            f"{expected_version}."
         )
     checks = conn.execute("PRAGMA integrity_check").fetchall()
     if len(checks) != 1 or checks[0][0] != "ok":
         raise ValueError("SQLite integrity check failed. Preserve the file and seek recovery help.")
     if conn.execute("PRAGMA foreign_key_check").fetchone() is not None:
-        raise ValueError("Database contains a broken catalogue relationship.")
-    required = {
-        "products", "brands", "articles", "colours", "sizes", "variants",
-        "stock_movements", "sales", "sale_items", "bill_sequence",
-        "users", "settings", "login_guard", "customers", "customer_sequence",
-        "measurement_profiles", "measurement_revisions", "tailoring_orders",
-        "tailoring_items", "tailoring_sequence", "stitching_rate_revisions",
-        "payments", "payment_sequence",
-    }
-    tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
-    if "settings" not in tables:
+        raise ValueError("Database contains a broken relationship.")
+    tables = {row[0] for row in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table'"
+    )}
+    if not required_tables.issubset(tables):
         raise ValueError("This is not a complete inventory backup.")
-    identity = conn.execute("SELECT value FROM settings WHERE key = 'schema_identity'").fetchone()
-    if identity is None or identity[0] != SCHEMA_IDENTITY:
-        raise ValueError("Database does not use the Phase 3A.1 measurement-template and rate foundation.")
-    if not required.issubset(tables):
-        raise ValueError("This is not a complete inventory backup.")
+    identity = conn.execute(
+        "SELECT value FROM settings WHERE key = 'schema_identity'"
+    ).fetchone()
+    if identity is None or identity[0] != expected_identity:
+        raise ValueError("Database schema identity does not match its recorded version.")
     if conn.execute("SELECT COUNT(*) FROM users").fetchone()[0] != 1:
         raise ValueError("Expected exactly one owner account in this foundation database.")
-    secret = conn.execute("SELECT value FROM settings WHERE key = 'secret_key'").fetchone()
+    secret = conn.execute(
+        "SELECT value FROM settings WHERE key = 'secret_key'"
+    ).fetchone()
     if secret is None or len(secret[0]) < 32:
         raise ValueError("The database session secret is missing.")
     if conn.execute("SELECT id FROM login_guard WHERE id = 1").fetchone() is None:
         raise ValueError("The database login guard is missing.")
+
+
+def inspect_database(conn):
+    _inspect_foundation(
+        conn,
+        SCHEMA_VERSION,
+        SCHEMA_IDENTITY,
+        BASE_REQUIRED_TABLES | TAILOR_REQUIRED_TABLES,
+    )
+
+
+def inspect_tailor_upgrade_source(conn):
+    _inspect_foundation(
+        conn,
+        LEGACY_SCHEMA_VERSION,
+        LEGACY_SCHEMA_IDENTITY,
+        BASE_REQUIRED_TABLES,
+    )
+    tables = {row[0] for row in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table'"
+    )}
+    if tables.intersection(TAILOR_REQUIRED_TABLES):
+        raise ValueError("The version-4 database already contains unexpected Tailor tables.")
+
+
+def upgrade_tailor_schema(database, backup_destination):
+    """Explicitly back up and upgrade one verified schema-v4 database to schema v5."""
+    database = Path(database).expanduser().resolve(strict=True)
+    backup = Path(backup_destination).expanduser().resolve()
+    if backup == database:
+        raise ValueError("The upgrade backup must differ from the working database.")
+
+    with closing(connect_database(database)) as source:
+        inspect_tailor_upgrade_source(source)
+        backup.parent.mkdir(parents=True, exist_ok=True)
+        backup.touch(exist_ok=False)
+        try:
+            with closing(sqlite3.connect(str(backup), isolation_level=None)) as output:
+                source.backup(output)
+                inspect_tailor_upgrade_source(output)
+        except Exception:
+            backup.unlink(missing_ok=True)
+            raise
+
+        migration = (
+            Path(__file__).parent / "shop" / "migrations" / "002_tailors.sql"
+        ).read_text(encoding="utf-8")
+        try:
+            source.executescript("BEGIN IMMEDIATE;\n" + migration)
+            source.commit()
+        except Exception:
+            source.rollback()
+            raise
+        inspect_database(source)
+    return backup
 
 
 def backup_database(database, destination):
@@ -126,6 +190,14 @@ def main(argv=None):
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("init", help="Create a new database and owner; never overwrite existing data")
     commands.add_parser("check", help="Check database integrity and schema; no stock changes")
+    upgrade_cmd = commands.add_parser(
+        "upgrade-v5",
+        help="Back up and explicitly upgrade a verified schema-v4 database for Tailors",
+    )
+    upgrade_cmd.add_argument(
+        "--backup-to", required=True,
+        help="New backup filename retained as the schema-v4 recovery copy",
+    )
     commands.add_parser("reset-password", help="Prompt for a new owner password; invalidates signed-in sessions")
     serve_cmd = commands.add_parser("serve", help="Start the local service; no auto-init or migration")
     serve_cmd.add_argument("--host", default="127.0.0.1", help="Loopback or a specific private IPv4 address on the main computer")
@@ -148,16 +220,20 @@ def main(argv=None):
             initialize_database(database, username, password_hash, secrets.token_urlsafe(48))
             print(
                 f"Created {database}. Seven product definitions; no sample brands, stock, "
-                "customers or stitching rates."
+                "customers, stitching rates or Tailors."
             )
         elif args.command == "check":
             with closing(connect_database(database)) as conn:
                 inspect_database(conn)
             print(
                 f"SQLite integrity: ok. Foreign keys: ok. Schema version: {SCHEMA_VERSION}. "
-                "Product hierarchy: ok. Sales, customer, measurement-template, tailoring-rate and payment foundation: ok."
+                "Product hierarchy: ok. Sales, customer, measurement, tailoring, Tailor-assignment and payment foundation: ok."
             )
             print("This does not verify browser behaviour, business balances or hardware performance.")
+        elif args.command == "upgrade-v5":
+            backup = upgrade_tailor_schema(database, args.backup_to)
+            print(f"Schema-v4 backup created and checked: {backup}")
+            print("Database upgraded to schema version 5 with empty Tailor records.")
         elif args.command == "reset-password":
             # Verify this is an existing application database before prompting.
             with closing(connect_database(database)) as conn:
