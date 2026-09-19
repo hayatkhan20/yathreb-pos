@@ -16,6 +16,7 @@ from .inventory import (
     STANDARD_MEASUREMENT_TEMPLATES,
     TAILORING_STATUSES,
     add_article,
+    assign_tailor,
     add_brand,
     add_colour,
     add_product,
@@ -25,6 +26,7 @@ from .inventory import (
     confirm_unit,
     configure_stitching_rate,
     create_customer,
+    create_tailor,
     delete_catalogue_item,
     finalize_combined_bill,
     format_pkr,
@@ -44,6 +46,7 @@ from .inventory import (
     list_sales,
     list_stock,
     list_tailoring_orders,
+    list_tailors,
     parse_pkr,
     quote_sale_items,
     quote_tailoring_items,
@@ -54,6 +57,7 @@ from .inventory import (
     sales_report,
     search_customers,
     set_default_selling_price,
+    set_tailor_active,
     update_customer,
 )
 
@@ -316,6 +320,7 @@ def _parse_tailoring_items(raw):
             "source_sale_item_id": item.get("source_sale_item_id"),
             "measurement_revision_id": item.get("measurement_revision_id"),
             "promised_date": item.get("promised_date"),
+            "tailor_id": item.get("tailor_id"),
         })
     return items
 
@@ -335,6 +340,7 @@ def _tailoring_draft_from_quote(rows, source_rows):
             "source_sale_item_id": row["source_sale_item_id"],
             "measurement_revision_id": row["measurement_revision_id"],
             "promised_date": source_rows[index].get("promised_date"),
+            "tailor_id": row.get("tailor_id"),
         }
         for index, row in enumerate(rows)
     ]
@@ -628,6 +634,7 @@ def _render_billing(
         default_price=default_price,
         product_confirmation=product_confirmation,
         sale_mode=sale_mode,
+        tailors=list_tailors(get_db(), active_only=True),
     )
     return render_template("billing.html", **context), status
 
@@ -856,6 +863,21 @@ def billing_customers():
     return jsonify(customer=_billing_customer_option(customer)), 201
 
 
+@bp.post("/billing/tailors")
+def billing_tailors():
+    """Add a Tailor without leaving the current Billing draft."""
+    try:
+        tailor_id = create_tailor(
+            get_db(), request.form.get("name", ""), request.form.get("mobile", "")
+        )
+        tailor = next(
+            item for item in list_tailors(get_db()) if item["id"] == tailor_id
+        )
+    except DomainError as caught:
+        return jsonify(error=str(caught)), 400
+    return jsonify(tailor=tailor), 201
+
+
 @bp.route("/billing", methods=["GET", "POST"])
 def billing():
     if request.method == "GET":
@@ -1050,6 +1072,7 @@ def billing():
                 "source_sale_item_id": source_sale_item_id,
                 "measurement_revision_id": selection["measurement"]["id"],
                 "promised_date": promised_date,
+                "tailor_id": form.get("tailor_id") or None,
             }]
             if len(draft) + len(candidate) > 100:
                 raise DomainError("A bill may contain up to 100 total product and tailoring items.")
@@ -1059,6 +1082,7 @@ def billing():
             source = form.to_dict(flat=True)
             source["tailoring_quantity"] = "1"
             source["tailoring_price"] = ""
+            source["tailor_id"] = ""
             return _render_billing(
                 source, draft=draft,
                 tailoring_draft=_tailoring_draft_from_quote(quoted_tailoring, candidate),
@@ -1392,6 +1416,41 @@ def customer_edit(customer_id):
     ), status
 
 
+@bp.route("/tailors", methods=["GET", "POST"])
+def tailors():
+    error = None
+    status = 200
+    if request.method == "POST":
+        action = request.form.get("action", "add")
+        try:
+            if action == "add":
+                create_tailor(
+                    get_db(), request.form.get("name", ""), request.form.get("mobile", "")
+                )
+                notice = "Tailor added."
+            elif action == "set_active":
+                active_value = request.form.get("active")
+                if active_value not in ("true", "false"):
+                    raise DomainError("Choose whether the Tailor is active.")
+                set_tailor_active(
+                    get_db(), request.form.get("tailor_id"), active_value == "true"
+                )
+                notice = "Tailor availability updated."
+            else:
+                raise DomainError("Choose a valid Tailor action.")
+        except DomainError as caught:
+            error = str(caught)
+            status = 400
+        else:
+            return redirect(url_for("web.tailors", notice=notice), code=303)
+    return render_template(
+        "tailors.html",
+        tailors=list_tailors(get_db()),
+        notice=request.args.get("notice"),
+        error=error,
+    ), status
+
+
 @bp.get("/measurements")
 def measurement_customers():
     query = request.args.get("q", "")
@@ -1582,13 +1641,52 @@ def tailoring_orders():
     ), status_code
 
 
-@bp.get("/tailoring/<int:tailoring_order_id>")
-def tailoring_order_detail(tailoring_order_id):
+def _render_tailoring_order_detail(tailoring_order_id, *, error=None, status=200):
     try:
         order = get_tailoring_order(get_db(), tailoring_order_id)
     except DomainError:
         abort(404, description="That finalized tailoring order does not exist.")
-    return render_template("tailoring_order_detail.html", order=order)
+    notice = (
+        "Tailor assignment updated."
+        if request.args.get("notice") == "tailor-updated" else None
+    )
+    return render_template(
+        "tailoring_order_detail.html",
+        order=order,
+        tailors=list_tailors(get_db(), active_only=True),
+        notice=notice,
+        error=error,
+    ), status
+
+
+@bp.get("/tailoring/<int:tailoring_order_id>")
+def tailoring_order_detail(tailoring_order_id):
+    return _render_tailoring_order_detail(tailoring_order_id)
+
+
+@bp.post("/tailoring/<int:tailoring_order_id>/items/<int:tailoring_item_id>/tailor")
+def tailoring_item_tailor(tailoring_order_id, tailoring_item_id):
+    try:
+        assign_tailor(
+            get_db(),
+            tailoring_order_id,
+            tailoring_item_id,
+            request.form.get("tailor_id") or None,
+            g.user["id"],
+        )
+    except DomainError as caught:
+        return _render_tailoring_order_detail(
+            tailoring_order_id, error=str(caught), status=400
+        )
+    return redirect(
+        url_for(
+            "web.tailoring_order_detail",
+            tailoring_order_id=tailoring_order_id,
+            notice="tailor-updated",
+            _anchor=f"garment-{tailoring_item_id}",
+        ),
+        code=303,
+    )
 
 
 @bp.get("/history")
