@@ -233,7 +233,17 @@
     {% else %}
       <div class="tailoring-readiness">
         <div><span>Stitching rate</span>{% if tailoring_selection.category == 'Other / Custom Item' %}<strong>Manual price required</strong>{% elif tailoring_selection.rate %}<strong>PKR {{ tailoring_selection.rate.rate|pkr }} per piece</strong><small>Current standard rate</small>{% else %}<strong class="negative-value">Not configured</strong><a href="{{ url_for('web.stitching_rates') }}">Configure Stitching Rates</a>{% endif %}</div>
-        <div><span>Measurements</span>{% if tailoring_selection.measurement %}<strong>Current measurements</strong><small>Saved {{ tailoring_selection.measurement.created_at[:10] }}{% if tailoring_selection.measurement.custom_description %} &middot; {{ tailoring_selection.measurement.custom_description }}{% endif %}</small>{% else %}<strong class="negative-value">Missing matching measurements</strong><a href="{{ url_for('web.customer_measurements', customer_id=customer.id, category=tailoring_selection.category) }}">Add measurements</a>{% endif %}</div>
+        <div>
+          <span>Measurements</span>
+          {% if tailoring_selection.measurement %}
+            <strong>Current measurements</strong>
+            <small>Saved {{ tailoring_selection.measurement.created_at[:10] }}{% if tailoring_selection.measurement.custom_description %} &middot; {{ tailoring_selection.measurement.custom_description }}{% endif %}</small>
+            <a href="{{ url_for('web.customer_measurements', customer_id=customer.id, category=tailoring_selection.category) }}" data-open-measurement-dialog>Update measurements</a>
+          {% else %}
+            <strong class="negative-value">Missing matching measurements</strong>
+            <a href="{{ url_for('web.customer_measurements', customer_id=customer.id, category=tailoring_selection.category) }}" data-open-measurement-dialog>Add measurements</a>
+          {% endif %}
+        </div>
       </div>
       <div class="field-row">
         <div class="field"><label for="tailoring-quantity">Quantity <span class="optional">whole pieces</span></label><input id="tailoring-quantity" name="tailoring_quantity" value="{{ form.get('tailoring_quantity', '') or '1' }}" inputmode="numeric" min="1" step="1" placeholder="1"></div>
@@ -350,4 +360,78 @@
     </div>
   </form>
 </dialog>
+
+{% if customer %}
+  {% set current_measurement = tailoring_selection.measurement %}
+  <dialog class="customer-dialog measurement-dialog" aria-labelledby="billing-measurement-heading" data-measurement-dialog>
+    <form method="post" action="{{ url_for('web.customer_measurements', customer_id=customer.id) }}" class="stacked-form" data-inline-measurement-form>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="category" value="{{ tailoring_selection.category }}">
+      <div class="customer-dialog-heading">
+        <div>
+          <p class="eyebrow">{{ customer.customer_number }} &middot; {{ customer.name }}</p>
+          <h2 id="billing-measurement-heading">{% if current_measurement %}Update{% else %}Add{% endif %} {{ tailoring_selection.category }} measurements</h2>
+        </div>
+        <button type="button" class="secondary small" data-close-measurement-dialog aria-label="Close measurements window">Close</button>
+      </div>
+      <p class="section-note">These values become the customer&rsquo;s current measurements. Finalized tailoring orders keep their saved measurement snapshot.</p>
+      <div class="alert error" role="alert" tabindex="-1" data-inline-measurement-error hidden></div>
+
+      {% if tailoring_selection.definition %}
+        <fieldset>
+          <legend>Numeric measurements</legend>
+          <div class="measurement-grid">
+            {% for label in tailoring_selection.definition.measurements %}
+              <div class="field">
+                <label for="billing-measurement-{{ loop.index0 }}">{{ label }} (inches)</label>
+                <input id="billing-measurement-{{ loop.index0 }}" name="measurement_{{ loop.index0 }}" value="{% if current_measurement %}{{ current_measurement.measurements.get(label, 0)|quantity }}{% endif %}" type="number" min="0.001" max="10000" step="0.001" inputmode="decimal" required>
+              </div>
+            {% endfor %}
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Style details</legend>
+          <div class="checkbox-grid">
+            {% for label in tailoring_selection.definition.styles %}
+              <label class="checkbox-field" for="billing-style-{{ loop.index0 }}"><input id="billing-style-{{ loop.index0 }}" type="checkbox" name="style_{{ loop.index0 }}" value="true"{% if current_measurement and current_measurement.styles.get(label, false) %} checked{% endif %}> <span>{{ label }}</span></label>
+            {% endfor %}
+          </div>
+        </fieldset>
+      {% else %}
+        <div class="field">
+          <label for="billing-custom-description">Custom item description</label>
+          <input id="billing-custom-description" name="custom_description" value="{{ tailoring_selection.custom_description }}" maxlength="200" required>
+        </div>
+        <fieldset>
+          <legend>Flexible measurements</legend>
+          <p class="section-note">Add only the measurements needed for this custom item.</p>
+          <div class="custom-measurement-list" data-custom-measurements>
+            {% if current_measurement %}
+              {% for label, amount in current_measurement.measurements.items() %}
+                <div class="custom-measurement-row" data-custom-measurement-row>
+                  <div class="field"><label for="custom-name-{{ loop.index0 }}">Measurement name</label><input id="custom-name-{{ loop.index0 }}" name="custom_name" value="{{ label }}" maxlength="80" required></div>
+                  <div class="field"><label for="custom-value-{{ loop.index0 }}">Value (inches)</label><input id="custom-value-{{ loop.index0 }}" name="custom_value" value="{{ amount|quantity }}" type="number" min="0.001" max="10000" step="0.001" inputmode="decimal" required></div>
+                  <button type="button" class="secondary small" data-remove-custom-measurement>Remove</button>
+                </div>
+              {% endfor %}
+            {% else %}
+              <div class="custom-measurement-row" data-custom-measurement-row>
+                <div class="field"><label for="custom-name-0">Measurement name</label><input id="custom-name-0" name="custom_name" maxlength="80" required></div>
+                <div class="field"><label for="custom-value-0">Value (inches)</label><input id="custom-value-0" name="custom_value" type="number" min="0.001" max="10000" step="0.001" inputmode="decimal" required></div>
+                <button type="button" class="secondary small" data-remove-custom-measurement disabled>Remove</button>
+              </div>
+            {% endif %}
+          </div>
+          <button type="button" class="secondary small" data-add-custom-measurement>Add measurement</button>
+        </fieldset>
+      {% endif %}
+
+      <div class="field"><label for="billing-measurement-notes">Note <span class="optional">optional</span></label><textarea id="billing-measurement-notes" name="notes" maxlength="1000" rows="3">{{ current_measurement.notes if current_measurement else '' }}</textarea></div>
+      <div class="form-actions">
+        <button type="submit" class="primary" data-save-inline-measurement>Save current measurements</button>
+        <button type="button" class="secondary" data-close-measurement-dialog>Cancel</button>
+      </div>
+    </form>
+  </dialog>
+{% endif %}
 {% endblock %}
