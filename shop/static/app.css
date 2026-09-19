@@ -76,6 +76,8 @@ h3 { margin-bottom: .4rem; }
 
 .filter-grid { display: flex; flex-wrap: wrap; align-items: end; gap: 1rem; }
 .filter-grid .field { flex: 1 1 12rem; }
+.billing-customer-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+.billing-customer-row > .form-actions { align-self: start; padding-top: 1.75rem; }
 .stacked-form { display: grid; gap: 1rem; }
 .wide-form { max-width: 46rem; }
 .field { display: grid; align-content: start; gap: .32rem; }
@@ -267,6 +269,8 @@ th { color: #465260; background: #f9fafb; font-size: .8rem; letter-spacing: .02e
   .field-row, .catalogue-grid, .totals, .variant-facts, .billing-checkout-grid, .dashboard-grid, .report-summary, .record-grid, .measurement-grid, .checkbox-grid, .sale-type-grid { grid-template-columns: 1fr; }
   .custom-measurement-row { grid-template-columns: 1fr; }
   .customer-match-list, .tailoring-readiness { grid-template-columns: 1fr; }
+  .billing-customer-row { grid-template-columns: 1fr; }
+  .billing-customer-row > .form-actions { padding-top: 0; }
   .selected-customer { align-items: stretch; flex-direction: column; }
   .current-bill-items li { align-items: flex-start; flex-direction: column; gap: .15rem; }
   .custom-measurement-row button { justify-self: start; }
