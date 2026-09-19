@@ -336,7 +336,7 @@
       <button type="button" class="secondary small" data-close-customer-dialog aria-label="Close add customer window">Close</button>
     </div>
     <p class="section-note">The new customer will be selected for this bill automatically.</p>
-    <div class="alert error" role="alert" data-inline-customer-error hidden></div>
+    <div class="alert error" role="alert" tabindex="-1" data-inline-customer-error hidden></div>
     <div class="field-row">
       <div class="field"><label for="billing-customer-name">Name</label><input id="billing-customer-name" name="name" maxlength="120" required autocomplete="name"></div>
       <div class="field"><label for="billing-customer-mobile">Primary mobile</label><input id="billing-customer-mobile" name="primary_mobile" maxlength="40" required inputmode="tel" autocomplete="tel"></div>
