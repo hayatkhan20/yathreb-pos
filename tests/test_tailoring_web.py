@@ -266,11 +266,11 @@ class TailoringWebTests(unittest.TestCase):
         self.assertIn("Tailoring item added to the bill draft", page)
         self.assertGreater(
             page.index("Tailoring item added to the bill draft"),
-            page.index("data-tailoring-addition"),
+            page.index("Add tailoring to bill"),
         )
         self.assertLess(
             page.index("Tailoring item added to the bill draft"),
-            page.index("data-tailoring-refresh"),
+            page.index('id="bill-review"'),
         )
         self.assertIn('name="tailoring_quantity" value="1"', page)
         self.assertIn("Stitching &middot; Shirt", page)
@@ -796,7 +796,9 @@ class TailoringWebTests(unittest.TestCase):
         })
         self.assertEqual(303, response.status_code)
         self.assertIn("#garment-1", response.headers["Location"])
-        updated = self.client.get("/tailoring/1").get_data(as_text=True)
+        updated = self.client.get(
+            response.headers["Location"].split("#", 1)[0]
+        ).get_data(as_text=True)
         self.assertIn("Tailor assignment updated.", updated)
         self.assertIn("<strong>Rashid</strong>", updated)
 
