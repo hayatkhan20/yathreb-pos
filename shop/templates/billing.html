@@ -39,6 +39,7 @@
   data-billing-form
   data-children-url="{{ url_for('web.catalogue_children') }}"
   data-variant-url="{{ url_for('web.billing_variant') }}"
+  data-customer-url="{{ url_for('web.billing_customers') }}"
 >
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="request_key" value="{{ request_key }}">
@@ -82,10 +83,19 @@
       </div>
     {% endif %}
     <div class="filter-grid">
-      <div class="field"><label for="billing-customer-search">Customer ID, name, or mobile</label><input id="billing-customer-search" type="search" name="customer_query" value="{{ customer_query }}" maxlength="120" autocomplete="off"></div>
-      <div class="form-actions"><button type="submit" class="secondary" name="action" value="search_customer" formnovalidate>Search customers</button><a class="button secondary" href="{{ url_for('web.customers', return_to='billing') }}">Add new customer</a></div>
+      <div class="field customer-search-field">
+        <label for="billing-customer-search">Customer ID, name, or mobile</label>
+        <input id="billing-customer-search" type="search" name="customer_query" value="{{ customer_query }}" maxlength="120" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="billing-customer-results" aria-expanded="{{ 'true' if customer_matches else 'false' }}" data-billing-customer-search>
+        <p class="form-hint" aria-live="polite" data-billing-customer-status>{% if customer_query and not customer_matches %}No matching customers found.{% else %}Type at least 2 characters to see matching customers.{% endif %}</p>
+        <div id="billing-customer-results" class="customer-match-list customer-suggestions" role="listbox" aria-label="Matching customers" data-billing-customer-results{% if not customer_matches %} hidden{% endif %}>
+          {% for match in customer_matches %}<button type="submit" class="customer-match" name="action" value="select_customer:{{ match.id }}" formnovalidate role="option"><strong>{{ match.customer_number }} &middot; {{ match.name }}</strong><span>{{ match.primary_mobile }}</span></button>{% endfor %}
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="secondary" name="action" value="search_customer" formnovalidate data-customer-search-fallback>Search customers</button>
+        <a class="button secondary" href="{{ url_for('web.customers', return_to='billing') }}" data-open-customer-dialog>Add new customer</a>
+      </div>
     </div>
-    {% if customer_matches %}<div class="customer-match-list" aria-label="Matching customers">{% for match in customer_matches %}<button type="submit" class="customer-match" name="action" value="select_customer:{{ match.id }}" formnovalidate><strong>{{ match.customer_number }} &middot; {{ match.name }}</strong><span>{{ match.primary_mobile }}</span></button>{% endfor %}</div>{% elif customer_query %}<p class="empty-copy">No customers match &ldquo;{{ customer_query }}&rdquo;.</p>{% endif %}
   </section>
 
   <section class="card" aria-labelledby="billing-selection-heading" data-sale-mode-section="products">
@@ -317,4 +327,27 @@
     </div>
   </section>
 </form>
+
+<dialog class="customer-dialog" aria-labelledby="billing-new-customer-heading" data-customer-dialog>
+  <form method="post" action="{{ url_for('web.billing_customers') }}" class="stacked-form" data-inline-customer-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="customer-dialog-heading">
+      <div><p class="eyebrow">Billing</p><h2 id="billing-new-customer-heading">Add new customer</h2></div>
+      <button type="button" class="secondary small" data-close-customer-dialog aria-label="Close add customer window">Close</button>
+    </div>
+    <p class="section-note">The new customer will be selected for this bill automatically.</p>
+    <div class="alert error" role="alert" data-inline-customer-error hidden></div>
+    <div class="field-row">
+      <div class="field"><label for="billing-customer-name">Name</label><input id="billing-customer-name" name="name" maxlength="120" required autocomplete="name"></div>
+      <div class="field"><label for="billing-customer-mobile">Primary mobile</label><input id="billing-customer-mobile" name="primary_mobile" maxlength="40" required inputmode="tel" autocomplete="tel"></div>
+    </div>
+    <div class="field"><label for="billing-customer-alt-mobile">Alternate mobile <span class="optional">optional</span></label><input id="billing-customer-alt-mobile" name="alternate_mobile" maxlength="40" inputmode="tel"></div>
+    <div class="field"><label for="billing-customer-address">Address <span class="optional">optional</span></label><textarea id="billing-customer-address" name="address" maxlength="500" rows="2"></textarea></div>
+    <div class="field"><label for="billing-customer-notes">Notes <span class="optional">optional</span></label><textarea id="billing-customer-notes" name="notes" maxlength="2000" rows="2"></textarea></div>
+    <div class="form-actions">
+      <button type="submit" class="primary" data-save-inline-customer>Add and select customer</button>
+      <button type="button" class="secondary" data-close-customer-dialog>Cancel</button>
+    </div>
+  </form>
+</dialog>
 {% endblock %}
