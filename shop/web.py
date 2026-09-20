@@ -1,11 +1,12 @@
 """Server-rendered inventory, billing, finalized bills, and history."""
 
 from datetime import date, datetime, time, timedelta, timezone
+import hmac
 import json
 import re
 from uuid import uuid4
 
-from flask import Blueprint, abort, g, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, abort, current_app, g, jsonify, redirect, render_template, request, session, url_for
 
 from .db import get_db
 from .inventory import (
@@ -1433,6 +1434,106 @@ def customer_edit(customer_id):
     return render_template(
         "customer_edit.html", customer=customer, form=values, error=error
     ), status
+
+
+def _tailor_measurement_cards(customer_id):
+    revisions = get_measurement_revisions(get_db(), customer_id)
+    standard_current = {}
+    custom_current = {}
+    for revision in revisions:
+        category = revision["garment_category"]
+        if category in STANDARD_MEASUREMENT_TEMPLATES:
+            standard_current.setdefault(category, revision)
+        elif category == CUSTOM_GARMENT_CATEGORY:
+            key = revision["custom_description"].strip().casefold()
+            custom_current.setdefault(key, revision)
+
+    cards = []
+    for category, definition in STANDARD_MEASUREMENT_TEMPLATES.items():
+        revision = standard_current.get(category)
+        if revision is None:
+            continue
+        cards.append({
+            "title": category,
+            "measurements": [
+                (label, revision["measurements"][label])
+                for label in definition["measurements"]
+            ],
+            "styles": [
+                label for label in definition["styles"]
+                if revision["styles"].get(label)
+            ],
+            "notes": revision["notes"],
+        })
+    for revision in custom_current.values():
+        cards.append({
+            "title": revision["custom_description"] or CUSTOM_GARMENT_CATEGORY,
+            "measurements": list(revision["measurements"].items()),
+            "styles": [],
+            "notes": revision["notes"],
+        })
+    return cards
+
+
+@bp.route("/tailor/login", methods=["GET", "POST"])
+def tailor_login():
+    if g.user is not None or session.get("tailor_access") is True:
+        return redirect(url_for("web.tailor_home"))
+    error = None
+    status = 200
+    if request.method == "POST":
+        configured_pin = str(current_app.config.get("TAILOR_ACCESS_PIN", "")).strip()
+        submitted_pin = request.form.get("pin", "").strip()
+        if not re.fullmatch(r"[0-9]{4,12}", configured_pin):
+            error = "Tailor View access is not configured on this computer."
+            status = 503
+        elif (
+            not re.fullmatch(r"[0-9]{4,12}", submitted_pin)
+            or not hmac.compare_digest(configured_pin, submitted_pin)
+        ):
+            error = "Incorrect Tailor View PIN."
+            status = 401
+        else:
+            session.clear()
+            session["tailor_access"] = True
+            session.permanent = True
+            return redirect(url_for("web.tailor_home"), code=303)
+    return render_template("tailor_login.html", error=error), status
+
+
+@bp.post("/tailor/logout")
+def tailor_logout():
+    session.pop("tailor_access", None)
+    if g.user is not None:
+        return redirect(url_for("web.dashboard"), code=303)
+    return redirect(url_for("web.tailor_login"), code=303)
+
+
+@bp.get("/tailor")
+def tailor_home():
+    query = request.args.get("q", "")
+    customers = []
+    error = None
+    status = 200
+    if query.strip():
+        try:
+            customers = search_customers(get_db(), query, limit=50)
+        except DomainError as caught:
+            error = str(caught)
+            status = 400
+    return render_template(
+        "tailor_home.html", customers=customers, search=query, error=error
+    ), status
+
+
+@bp.get("/tailor/customers/<int:customer_id>")
+def tailor_customer(customer_id):
+    customer = _customer_or_404(customer_id)
+    return render_template(
+        "tailor_customer.html",
+        customer=customer,
+        current_measurements=_tailor_measurement_cards(customer_id),
+    )
 
 
 @bp.route("/tailors", methods=["GET", "POST"])
