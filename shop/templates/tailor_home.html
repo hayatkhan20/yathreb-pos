@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tailor View · Yathreb</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='tailor.css') }}">
+</head>
+<body>
+  <header class="tailor-topbar">
+    <div><strong>Yathreb</strong><span>Tailor View</span></div>
+    <form method="post" action="{{ url_for('web.tailor_logout') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="tailor-link-button">Logout</button>
+    </form>
+  </header>
+  <main class="tailor-shell">
+    <section class="tailor-card">
+      <p class="tailor-eyebrow">Current measurements</p>
+      <h1>Find customer</h1>
+      <form method="get" action="{{ url_for('web.tailor_home') }}" class="tailor-search">
+        <label for="tailor-search">Customer ID, name, or mobile</label>
+        <div class="tailor-search-row">
+          <input id="tailor-search" type="search" name="q" value="{{ search }}" maxlength="120" autocomplete="off" placeholder="e.g. Ahmed, CUST-000123, 0300...">
+          <button type="submit">Search</button>
+        </div>
+      </form>
+      {% if error %}<div class="tailor-alert" role="alert">{{ error }}</div>{% endif %}
+    </section>
+
+    {% if search %}
+      <section class="tailor-results" aria-label="Search results">
+        {% if customers %}
+          {% for customer in customers %}
+            <a class="tailor-customer-card" href="{{ url_for('web.tailor_customer', customer_id=customer.id) }}">
+              <div>
+                <strong>{{ customer.name }}</strong>
+                <span>{{ customer.customer_number }}</span>
+              </div>
+              <span class="tailor-mobile">{{ customer.primary_mobile }}</span>
+            </a>
+          {% endfor %}
+        {% else %}
+          <div class="tailor-card tailor-empty">No customers match “{{ search }}”.</div>
+        {% endif %}
+      </section>
+    {% else %}
+      <p class="tailor-hint">Search to view a customer's latest saved measurements.</p>
+    {% endif %}
+  </main>
+</body>
+</html>
