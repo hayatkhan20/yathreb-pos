@@ -264,6 +264,10 @@ class TailoringWebTests(unittest.TestCase):
         page = response.get_data(as_text=True)
         self.assertEqual(200, response.status_code)
         self.assertIn("Tailoring item added to the bill draft", page)
+        self.assertIn(
+            'class="alert success billing-action-feedback" role="status"',
+            page,
+        )
         self.assertGreater(
             page.index("Tailoring item added to the bill draft"),
             page.index("Add tailoring to bill"),
