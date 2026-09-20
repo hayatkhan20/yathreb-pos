@@ -29,6 +29,7 @@
             <a href="{{ url_for('web.catalogue_page') }}"{% if request.endpoint == 'web.catalogue_page' %} aria-current="page"{% endif %}>Catalogue</a>
             <a href="{{ url_for('web.measurement_customers') }}"{% if request.endpoint in ('web.measurement_customers', 'web.customer_measurements', 'web.measurement_revision') %} aria-current="page"{% endif %}>Measurements</a>
             <a href="{{ url_for('web.stitching_rates') }}"{% if request.endpoint == 'web.stitching_rates' %} aria-current="page"{% endif %}>Stitching Rates</a>
+            <a href="{{ url_for('web.tailors') }}"{% if request.endpoint == 'web.tailors' %} aria-current="page"{% endif %}>Tailors</a>
           </div>
         </nav>
         <form action="{{ url_for('auth.logout') }}" method="post" class="sidebar-logout">

@@ -773,6 +773,13 @@
       ? customerDialog.querySelector("[data-inline-customer-form]") : null;
     const inlineCustomerError = customerDialog
       ? customerDialog.querySelector("[data-inline-customer-error]") : null;
+    const tailorSelect = billingForm.querySelector("[data-tailor-select]");
+    const tailorDialogLink = billingForm.querySelector("[data-open-tailor-dialog]");
+    const tailorDialog = document.querySelector("[data-tailor-dialog]");
+    const inlineTailorForm = tailorDialog
+      ? tailorDialog.querySelector("[data-inline-tailor-form]") : null;
+    const inlineTailorError = tailorDialog
+      ? tailorDialog.querySelector("[data-inline-tailor-error]") : null;
     const measurementDialogLink = billingForm.querySelector("[data-open-measurement-dialog]");
     const measurementDialog = document.querySelector("[data-measurement-dialog]");
     const inlineMeasurementForm = measurementDialog
@@ -953,6 +960,58 @@
             inlineCustomerError.textContent = error.message;
             inlineCustomerError.hidden = false;
             inlineCustomerError.focus();
+          }
+        } finally {
+          if (saveButton) saveButton.disabled = false;
+        }
+      });
+    }
+
+    if (
+      tailorDialogLink
+      && tailorDialog
+      && inlineTailorForm
+      && tailorSelect
+      && typeof tailorDialog.showModal === "function"
+    ) {
+      tailorDialogLink.addEventListener("click", (event) => {
+        event.preventDefault();
+        if (inlineTailorError) inlineTailorError.hidden = true;
+        tailorDialog.showModal();
+        const nameInput = inlineTailorForm.querySelector('[name="name"]');
+        if (nameInput) nameInput.focus();
+      });
+      tailorDialog.querySelectorAll("[data-close-tailor-dialog]").forEach((button) => {
+        button.addEventListener("click", () => tailorDialog.close());
+      });
+      inlineTailorForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const saveButton = inlineTailorForm.querySelector("[data-save-inline-tailor]");
+        if (saveButton) saveButton.disabled = true;
+        if (inlineTailorError) inlineTailorError.hidden = true;
+        try {
+          const response = await fetch(inlineTailorForm.action, {
+            method: "POST",
+            headers: { Accept: "application/json" },
+            body: new FormData(inlineTailorForm),
+          });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.error || "The Tailor could not be added.");
+          const tailor = payload.tailor;
+          const option = document.createElement("option");
+          option.value = String(tailor.id);
+          option.textContent = tailor.mobile
+            ? `${tailor.name} · ${tailor.mobile}` : tailor.name;
+          option.selected = true;
+          tailorSelect.append(option);
+          inlineTailorForm.reset();
+          tailorDialog.close();
+          tailorSelect.focus();
+        } catch (error) {
+          if (inlineTailorError) {
+            inlineTailorError.textContent = error.message;
+            inlineTailorError.hidden = false;
+            inlineTailorError.focus();
           }
         } finally {
           if (saveButton) saveButton.disabled = false;

@@ -5,7 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from manage import backup_database, inspect_database, restore_database
+from manage import backup_database, inspect_database, restore_database, upgrade_tailor_schema
 from shop.db import connect_database, initialize_database
 
 
@@ -27,6 +27,37 @@ class RecoveryTests(unittest.TestCase):
             inspect_database(connection)
         with self.assertRaises(FileExistsError):
             backup_database(self.database, target)
+
+    def test_schema_v4_upgrade_creates_verified_backup_before_tailor_tables(self):
+        with closing(connect_database(self.database)) as connection:
+            connection.execute("DROP TABLE tailoring_item_assignments")
+            connection.execute("DROP TABLE tailors")
+            connection.execute(
+                "UPDATE settings SET value = 'measurement-templates-rates-v4' "
+                "WHERE key = 'schema_identity'"
+            )
+            connection.execute("PRAGMA user_version = 4")
+            connection.commit()
+
+        backup = self.root / "backups" / "before-tailors.sqlite3"
+        upgrade_tailor_schema(self.database, backup)
+
+        with closing(connect_database(backup)) as connection:
+            self.assertEqual(4, connection.execute("PRAGMA user_version").fetchone()[0])
+            tables = {
+                row[0] for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                )
+            }
+            self.assertNotIn("tailors", tables)
+        with closing(connect_database(self.database)) as connection:
+            inspect_database(connection)
+            self.assertEqual(5, connection.execute("PRAGMA user_version").fetchone()[0])
+            self.assertIsNotNone(
+                connection.execute(
+                    "SELECT name FROM sqlite_master WHERE name = 'tailors'"
+                ).fetchone()
+            )
 
     def test_restore_uses_new_directory_and_rotates_session_secret(self):
         backup = self.root / "backup.sqlite3"

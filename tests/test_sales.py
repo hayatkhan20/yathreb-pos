@@ -78,14 +78,14 @@ class SalesFoundationTests(unittest.TestCase):
         )
         return result["variant_id"], product, brand_id, colour_id
 
-    def test_schema_v4_identity_and_old_trial_rejection(self):
+    def test_schema_v5_identity_and_old_trial_rejection(self):
         self.assertEqual(SCHEMA_VERSION, self.conn.execute("PRAGMA user_version").fetchone()[0])
-        self.assertEqual(4, SCHEMA_VERSION)
+        self.assertEqual(5, SCHEMA_VERSION)
         identity = self.conn.execute(
             "SELECT value FROM settings WHERE key = 'schema_identity'"
         ).fetchone()[0]
         self.assertEqual(SCHEMA_IDENTITY, identity)
-        self.assertEqual("measurement-templates-rates-v4", identity)
+        self.assertEqual("tailor-assignments-v5", identity)
         inspect_database(self.conn)
 
         old_database = self.root / "schema-v3-trial.sqlite3"

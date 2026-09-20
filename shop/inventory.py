@@ -528,6 +528,81 @@ def normalize_mobile(value, *, optional=False):
     return displayed, digits
 
 
+def list_tailors(connection, *, active_only=False):
+    if not isinstance(active_only, bool):
+        raise DomainError("Choose whether inactive Tailors should be included.")
+    where = "WHERE active = 1" if active_only else ""
+    return [dict(row) for row in connection.execute(
+        f"""SELECT id, name, mobile, active, created_at
+            FROM tailors {where}
+            ORDER BY active DESC, name COLLATE NOCASE, id"""
+    )]
+
+
+def create_tailor(connection, name, mobile=""):
+    cleaned, key = _name(name)
+    mobile = _record_text(mobile, "Tailor mobile", 40)
+    with _write_transaction(connection):
+        cursor = connection.execute(
+            "INSERT INTO tailors (name, name_key, mobile) VALUES (?, ?, ?)",
+            (cleaned, key, mobile),
+        )
+        return cursor.lastrowid
+
+
+def set_tailor_active(connection, tailor_id, active):
+    tailor_id = _id(tailor_id, "Tailor")
+    if not isinstance(active, bool):
+        raise DomainError("Choose an active or inactive Tailor status.")
+    with _write_transaction(connection):
+        cursor = connection.execute(
+            "UPDATE tailors SET active = ? WHERE id = ?",
+            (1 if active else 0, tailor_id),
+        )
+        if cursor.rowcount != 1:
+            raise DomainError("Choose an existing Tailor.")
+
+
+def assign_tailor(connection, tailoring_order_id, tailoring_item_id, tailor_id, user_id):
+    tailoring_order_id = _id(tailoring_order_id, "tailoring order")
+    tailoring_item_id = _id(tailoring_item_id, "tailoring item")
+    tailor_id = _id(tailor_id, "Tailor", optional=True)
+    user_id = _id(user_id, "user")
+    with _write_transaction(connection):
+        item = connection.execute(
+            """SELECT ti.id FROM tailoring_items ti
+               JOIN tailoring_orders t ON t.id = ti.order_id
+               JOIN sales sa ON sa.id = t.sale_id
+               WHERE ti.id = ? AND ti.order_id = ? AND sa.status = 'finalized'""",
+            (tailoring_item_id, tailoring_order_id),
+        ).fetchone()
+        if item is None:
+            raise DomainError("Choose a garment from this finalized tailoring order.")
+        if connection.execute("SELECT 1 FROM users WHERE id = ?", (user_id,)).fetchone() is None:
+            raise DomainError("Sign in again before assigning a Tailor.")
+        if tailor_id is None:
+            connection.execute(
+                "DELETE FROM tailoring_item_assignments WHERE tailoring_item_id = ?",
+                (tailoring_item_id,),
+            )
+            return
+        tailor = connection.execute(
+            "SELECT id FROM tailors WHERE id = ? AND active = 1", (tailor_id,)
+        ).fetchone()
+        if tailor is None:
+            raise DomainError("Choose an active Tailor.")
+        connection.execute(
+            """INSERT INTO tailoring_item_assignments
+               (tailoring_item_id, tailor_id, assigned_by_user_id)
+               VALUES (?, ?, ?)
+               ON CONFLICT(tailoring_item_id) DO UPDATE SET
+                   tailor_id = excluded.tailor_id,
+                   assigned_by_user_id = excluded.assigned_by_user_id,
+                   assigned_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')""",
+            (tailoring_item_id, tailor_id, user_id),
+        )
+
+
 def _customer(connection, customer_id):
     customer_id = _id(customer_id, "customer")
     row = connection.execute("SELECT * FROM customers WHERE id = ?", (customer_id,)).fetchone()
@@ -1104,6 +1179,15 @@ def _normalize_tailoring_items(connection, customer_id, items, product_items=())
             raise DomainError("Every tailoring item must contain garment, measurement and charge details.")
         category, custom = _garment(item.get("garment_category"), item.get("custom_description", ""))
         quantity = _quantity(item.get("quantity"), "piece")
+        tailor_id = _id(item.get("tailor_id"), "Tailor", optional=True)
+        tailor = None
+        if tailor_id is not None:
+            tailor = connection.execute(
+                "SELECT id, name, mobile FROM tailors WHERE id = ? AND active = 1",
+                (tailor_id,),
+            ).fetchone()
+            if tailor is None:
+                raise DomainError("Choose an active Tailor or leave the garment unassigned.")
         if quantity > MAX_SALE_LINE_QUANTITY:
             raise DomainError("A tailoring-item quantity exceeds the supported engineering limit.")
         rate_revision = None
@@ -1172,14 +1256,14 @@ def _normalize_tailoring_items(connection, customer_id, items, product_items=())
             "line_total": line_total, "cloth_source": cloth_source,
             "source_product_line": source_line, "revision": revision,
             "source_sale_item_id": source_sale_item_id,
-            "rate_revision": rate_revision,
+            "rate_revision": rate_revision, "tailor": tailor, "tailor_id": tailor_id,
         })
         digest_item = {
             "line_number": line_number, "garment_category": category,
             "custom_description": custom, "quantity": quantity,
             "cloth_source": cloth_source, "source_product_line": source_line,
             "source_sale_item_id": source_sale_item_id,
-            "measurement_revision_id": revision["id"],
+            "measurement_revision_id": revision["id"], "tailor_id": tailor_id,
         }
         if category == CUSTOM_GARMENT_CATEGORY:
             digest_item["stitching_rate"] = rate
@@ -1211,6 +1295,8 @@ def quote_tailoring_items(connection, customer_id, items, product_items=()):
             "measurement_revision_id": item["revision"]["id"],
             "measurement_revision_number": item["revision"]["revision_number"],
             "measurement_created_at": item["revision"]["created_at"],
+            "tailor_id": item["tailor_id"],
+            "tailor_name": item["tailor"]["name"] if item["tailor"] else "",
             "stitching_rate_revision_id": (
                 item["rate_revision"]["id"] if item["rate_revision"] else None
             ),
@@ -1373,7 +1459,7 @@ def finalize_combined_bill(connection, *, product_items, tailoring_items, discou
                     if source_id is None:
                         raise DomainError("The linked shop-cloth line is not part of this bill.")
                 revision = item["revision"]
-                connection.execute(
+                tailoring_item_id = connection.execute(
                     """INSERT INTO tailoring_items
                        (order_id, line_number, garment_category, custom_description, quantity,
                         unit, stitching_rate, stitching_rate_revision_id, line_total,
@@ -1386,7 +1472,14 @@ def finalize_combined_bill(connection, *, product_items, tailoring_items, discou
                      item["line_total"], item["cloth_source"], source_id, revision["id"],
                      revision["unit"], revision["measurements_json"], revision["styles_json"],
                      revision["notes"]),
-                )
+                ).lastrowid
+                if item["tailor_id"] is not None:
+                    connection.execute(
+                        """INSERT INTO tailoring_item_assignments
+                           (tailoring_item_id, tailor_id, assigned_by_user_id)
+                           VALUES (?, ?, ?)""",
+                        (tailoring_item_id, item["tailor_id"], user_id),
+                    )
 
         connection.execute("UPDATE sales SET status = 'finalized' WHERE id = ?", (sale_id,))
         saved = connection.execute(
@@ -1423,11 +1516,15 @@ def get_tailoring_order(connection, tailoring_order_id):
         """SELECT ti.*, mr.revision_number AS measurement_revision_number,
                   si.product AS source_product, si.brand AS source_brand,
                   si.article AS source_article, si.colour AS source_colour,
-                  si.size AS source_size, source_sale.bill_number AS source_bill_number
+                  si.size AS source_size, source_sale.bill_number AS source_bill_number,
+                  tia.tailor_id, tr.name AS tailor_name, tr.mobile AS tailor_mobile,
+                  tr.active AS tailor_active, tia.assigned_at AS tailor_assigned_at
            FROM tailoring_items ti
            JOIN measurement_revisions mr ON mr.id = ti.measurement_revision_id
            LEFT JOIN sale_items si ON si.id = ti.source_sale_item_id
            LEFT JOIN sales source_sale ON source_sale.id = si.sale_id
+           LEFT JOIN tailoring_item_assignments tia ON tia.tailoring_item_id = ti.id
+           LEFT JOIN tailors tr ON tr.id = tia.tailor_id
            WHERE ti.order_id = ? ORDER BY ti.line_number""",
         (tailoring_order_id,),
     ):

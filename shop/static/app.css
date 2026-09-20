@@ -301,3 +301,26 @@ th { color: #465260; background: #f9fafb; font-size: .8rem; letter-spacing: .02e
   body.receipt-view .page > :not(.receipt) { display: none !important; }
   body.receipt-view .receipt { display: block !important; width: 74mm; margin: 0; padding: 0; border: 0; box-shadow: none; }
 }
+
+
+.tailor-assignment-form {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--canvas);
+}
+
+.tailor-assignment-form .form-hint {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 640px) {
+  .tailor-assignment-form {
+    grid-template-columns: 1fr;
+  }
+}
