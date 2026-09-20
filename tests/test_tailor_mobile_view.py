@@ -119,7 +119,7 @@ class TailorMobileViewTests(unittest.TestCase):
         self.assertIn("41.25 in", page)
         self.assertNotIn("40.5 in", page)
         self.assertIn("Cuff", page)
-        self.assertNotIn(">Collar<", page)
+        self.assertNotIn("<span>Collar</span>", page)
         self.assertIn("Current fitting", page)
         self.assertNotIn("Revision", page)
 
