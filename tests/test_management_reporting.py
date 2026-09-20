@@ -116,13 +116,20 @@ class ManagementReportingTests(unittest.TestCase):
         labels = (
             "Dashboard", "Billing", "Orders / Collection", "Customers",
             "Current Stock", "Add Stock", "Sales", "Setup",
-            "Catalogue", "Measurements", "Stitching Rates", "Logout",
+            "Catalogue", "Measurements", "Stitching Rates", "Tailors", "Logout",
         )
         positions = [page.index(f">{label}<") for label in labels]
         self.assertEqual(sorted(positions), positions)
         self.assertIn('data-sidebar-toggle', page)
         self.assertIn('aria-controls="management-sidebar"', page)
         self.assertIn('href="/dashboard" aria-current="page">Dashboard</a>', page)
+
+        css = self.client.get("/static/app.css").get_data(as_text=True)
+        self.assertIn(
+            ".sidebar-nav { display: grid; gap: .1rem; min-height: 0; margin-top: .65rem; overflow-y: visible; }",
+            css,
+        )
+        self.assertIn("@media (max-height: 720px)", css)
 
         sales_page = self.client.get("/sales/daily").get_data(as_text=True)
         self.assertIn('href="/sales" aria-current="page">Sales</a>', sales_page)
