@@ -334,6 +334,7 @@ class BillingWebTests(unittest.TestCase):
         self.assertIn('value="remove_line:0"', page)
         self.assertIn('<button type="button" class="primary" data-add-bill-line>', page)
         self.assertIn('name="action" value="add_line"', page)
+        self.assertIn("billing-add-confirmation billing-action-feedback", page)
         confirmation_position = page.index("billing-add-confirmation")
         self.assertGreater(confirmation_position, page.index("data-billing-variant"))
         self.assertLess(confirmation_position, page.index("data-tailoring-addition"))
@@ -372,7 +373,9 @@ class BillingWebTests(unittest.TestCase):
         self.assertIn('name="sale_mode" value="tailoring" data-sale-mode', page)
         self.assertIn('data-sale-mode-section="products"', page)
         self.assertIn('data-sale-mode-section="tailoring"', page)
-        self.assertIn("All sections remain available below when JavaScript is unavailable.", page)
+        self.assertIn("All sale sections remain available below.", page)
+        self.assertNotIn("JavaScript is available", page)
+        self.assertIn('data-billing-status aria-live="polite"></p>', page)
 
         response = self.client.post(
             "/billing",
@@ -396,6 +399,8 @@ class BillingWebTests(unittest.TestCase):
         self.assertIn('classList.toggle("sale-mode-hidden"', script)
         css = self.client.get("/static/app.css").get_data(as_text=True)
         self.assertIn(".sale-mode-hidden { display: none !important; }", css)
+        self.assertIn(".billing-action-feedback { margin-top: .75rem; }", css)
+        self.assertIn("[data-billing-status]:empty { display: none; }", css)
 
     def test_single_line_submission_recalculates_server_totals_and_redirects(self):
         variant_id, _, _, _, _ = self.fabric_variant()
