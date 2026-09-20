@@ -1,0 +1,57 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #17211f;
+  background: #f4f6f5;
+  font-size: 16px;
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; background: #f4f6f5; }
+button, input { font: inherit; }
+button { cursor: pointer; }
+.tailor-shell { width: min(100%, 760px); margin: 0 auto; padding: 18px 14px 36px; }
+.tailor-login-shell { min-height: 100vh; display: grid; place-items: center; }
+.tailor-card { background: #fff; border: 1px solid #dce4e1; border-radius: 16px; padding: 18px; box-shadow: 0 4px 16px rgba(20, 43, 37, .06); }
+.tailor-login-card { width: min(100%, 420px); }
+.tailor-eyebrow { margin: 0 0 6px; font-size: .78rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #52766d; }
+h1, h2, h3, p { overflow-wrap: anywhere; }
+h1 { margin: 0; font-size: 1.8rem; line-height: 1.15; }
+h2 { margin: 0 0 14px; font-size: 1.25rem; }
+h3 { margin: 0 0 8px; font-size: .9rem; color: #48645d; }
+.tailor-muted, .tailor-hint { color: #66736f; }
+.tailor-form { display: grid; gap: 9px; margin-top: 22px; }
+.tailor-form input, .tailor-search input { width: 100%; min-height: 50px; border: 1px solid #bccbc7; border-radius: 11px; padding: 10px 12px; background: #fff; }
+.tailor-form button, .tailor-search button { min-height: 50px; border: 0; border-radius: 11px; padding: 10px 16px; background: #173f36; color: #fff; font-weight: 800; }
+.tailor-alert { margin-top: 14px; padding: 11px 12px; border-radius: 10px; background: #fff2f0; color: #8a3027; border: 1px solid #efc2bc; }
+.tailor-topbar { position: sticky; top: 0; z-index: 10; min-height: 58px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 14px; background: #173f36; color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.12); }
+.tailor-topbar div { display: grid; }
+.tailor-topbar span { font-size: .78rem; opacity: .78; }
+.tailor-link-button { border: 1px solid rgba(255,255,255,.45); background: transparent; color: #fff; border-radius: 9px; padding: 7px 10px; }
+.tailor-back { color: #fff; font-weight: 800; text-decoration: none; }
+.tailor-search { display: grid; gap: 8px; margin-top: 18px; }
+.tailor-search label { font-weight: 700; font-size: .9rem; }
+.tailor-search-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.tailor-results { display: grid; gap: 10px; margin-top: 12px; }
+.tailor-customer-card { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 15px 16px; background: #fff; color: inherit; border: 1px solid #dce4e1; border-radius: 14px; text-decoration: none; }
+.tailor-customer-card div { display: grid; gap: 3px; }
+.tailor-customer-card strong { font-size: 1.05rem; }
+.tailor-customer-card span { color: #66736f; font-size: .88rem; }
+.tailor-customer-card .tailor-mobile { color: #173f36; font-weight: 700; text-align: right; }
+.tailor-hint { text-align: center; margin: 24px 0; }
+.tailor-customer-heading { margin-bottom: 12px; }
+.measurement-card { margin-bottom: 12px; }
+.measurement-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.measurement-grid div { background: #f3f7f5; border-radius: 10px; padding: 11px 12px; }
+.measurement-grid dt { color: #63716d; font-size: .78rem; }
+.measurement-grid dd { margin: 3px 0 0; font-weight: 800; font-size: 1.12rem; }
+.tailor-section { border-top: 1px solid #e6ece9; margin-top: 14px; padding-top: 13px; }
+.tailor-section p { margin: 0; white-space: pre-wrap; }
+.tailor-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tailor-tags span { border-radius: 999px; padding: 6px 9px; background: #e8f0ed; font-size: .82rem; font-weight: 700; }
+.tailor-empty { color: #66736f; text-align: center; margin-top: 12px; }
+@media (max-width: 520px) {
+  .tailor-search-row { grid-template-columns: 1fr; }
+  .tailor-search button { width: 100%; }
+  .measurement-grid { grid-template-columns: 1fr 1fr; }
+  .tailor-customer-card { align-items: flex-start; flex-direction: column; }
+  .tailor-customer-card .tailor-mobile { text-align: left; }
+}
