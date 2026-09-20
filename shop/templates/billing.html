@@ -286,7 +286,7 @@
         <p class="form-hint">Linking sold Fabric identifies the cloth used and never deducts stock again.</p>
       </fieldset>
       <div class="field"><label for="order-notes">Tailoring order notes <span class="optional">optional; shared by this order</span></label><textarea id="order-notes" name="order_notes" maxlength="2000" rows="3">{{ order_notes }}</textarea></div>
-      <div class="form-actions"><button type="submit" class="primary" name="action" value="add_tailoring"{% if not tailoring_selection.measurement or (tailoring_selection.category != 'Other / Custom Item' and not tailoring_selection.rate) %} disabled{% endif %}>Add tailoring to bill</button></div>
+      <div class="form-actions tailoring-add-actions"><button type="submit" class="primary" name="action" value="add_tailoring"{% if not tailoring_selection.measurement or (tailoring_selection.category != 'Other / Custom Item' and not tailoring_selection.rate) %} disabled{% endif %}>Add tailoring to bill</button></div>
       {% if notice and feedback_target == 'tailoring' %}<div class="alert success billing-action-feedback" role="status">{{ notice }}</div>{% endif %}
     {% endif %}
   </section>
