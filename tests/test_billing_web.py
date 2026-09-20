@@ -400,6 +400,7 @@ class BillingWebTests(unittest.TestCase):
         css = self.client.get("/static/app.css").get_data(as_text=True)
         self.assertIn(".sale-mode-hidden { display: none !important; }", css)
         self.assertIn(".billing-action-feedback { margin-top: .75rem; }", css)
+        self.assertIn(".tailoring-add-actions { margin-top: .75rem; }", css)
         self.assertIn("[data-billing-status]:empty { display: none; }", css)
 
     def test_single_line_submission_recalculates_server_totals_and_redirects(self):
