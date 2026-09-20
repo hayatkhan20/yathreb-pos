@@ -777,6 +777,7 @@ class TailoringWebTests(unittest.TestCase):
             "/billing", query_string={"customer_id": customer["customer_id"]}
         ).get_data(as_text=True)
         self.assertIn("Assigned Tailor", billing_page)
+        self.assertIn('class="form-actions tailoring-add-actions"', billing_page)
         self.assertIn("data-tailor-dialog", billing_page)
         self.assertIn("Naveed", billing_page)
         self.assertIn("Rashid", billing_page)
