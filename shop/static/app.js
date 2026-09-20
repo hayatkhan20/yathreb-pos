@@ -788,6 +788,15 @@
       button.removeAttribute("name");
     });
     billingForm.append(actionInput);
+    const billingScrollKey = "yathreb-billing-scroll-y";
+    const savedBillingScroll = window.sessionStorage.getItem(billingScrollKey);
+    if (savedBillingScroll !== null) {
+      window.sessionStorage.removeItem(billingScrollKey);
+      const scrollTop = Number(savedBillingScroll);
+      if (Number.isFinite(scrollTop) && scrollTop >= 0) {
+        window.requestAnimationFrame(() => window.scrollTo(0, scrollTop));
+      }
+    }
     let latestBillingRequest = 0;
     let currentVariant = null;
     let paidWasEdited = paidInput.dataset.paidSupplied === "true";
@@ -1377,7 +1386,6 @@
       confirmation.hidden = false;
       window.requestAnimationFrame(() => {
         confirmation.focus({ preventScroll: true });
-        confirmation.scrollIntoView({ block: "nearest" });
       });
     }
 
@@ -1653,6 +1661,9 @@
       if (billingForm.dataset.submitting === "true") {
         event.preventDefault();
         return;
+      }
+      if (actionInput.value === "add_tailoring") {
+        window.sessionStorage.setItem(billingScrollKey, String(window.scrollY));
       }
       if (actionInput.value) {
         billingForm.dataset.submitting = "true";
