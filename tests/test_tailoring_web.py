@@ -264,6 +264,10 @@ class TailoringWebTests(unittest.TestCase):
         page = response.get_data(as_text=True)
         self.assertEqual(200, response.status_code)
         self.assertIn("Tailoring item added to the bill draft", page)
+        self.assertIn(
+            'class="alert success billing-action-feedback" role="status"',
+            page,
+        )
         self.assertGreater(
             page.index("Tailoring item added to the bill draft"),
             page.index("Add tailoring to bill"),
@@ -773,6 +777,7 @@ class TailoringWebTests(unittest.TestCase):
             "/billing", query_string={"customer_id": customer["customer_id"]}
         ).get_data(as_text=True)
         self.assertIn("Assigned Tailor", billing_page)
+        self.assertIn('class="form-actions tailoring-add-actions"', billing_page)
         self.assertIn("data-tailor-dialog", billing_page)
         self.assertIn("Naveed", billing_page)
         self.assertIn("Rashid", billing_page)

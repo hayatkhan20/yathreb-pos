@@ -34,19 +34,19 @@ h3 { margin-bottom: .4rem; }
 .skip-link:focus { left: .5rem; }
 .app-shell { min-height: 100vh; display: grid; grid-template-columns: 15rem minmax(0, 1fr); }
 .app-shell.signed-out { display: block; }
-.sidebar { position: sticky; top: 0; z-index: 30; display: flex; flex-direction: column; height: 100vh; padding: 1.4rem 1rem; color: white; background: #122f35; box-shadow: 1px 0 7px #17212b2b; }
-.sidebar-branding { padding: .25rem .65rem 1.4rem; border-bottom: 1px solid #ffffff1f; }
+.sidebar { position: sticky; top: 0; z-index: 30; display: flex; flex-direction: column; height: 100vh; padding: 1rem .8rem; color: white; background: #122f35; box-shadow: 1px 0 7px #17212b2b; }
+.sidebar-branding { padding: .15rem .65rem .85rem; border-bottom: 1px solid #ffffff1f; }
 .brand { color: white; font-size: 1.3rem; font-weight: 750; text-decoration: none; }
 .brand:hover { color: white; }
 .foundation-label { display: block; color: #b9cfcc; font-size: .78rem; letter-spacing: .04em; }
-.sidebar-nav { display: grid; gap: .25rem; min-height: 0; margin-top: 1.25rem; overflow-y: auto; }
-.sidebar-nav > a, .sidebar-group > a, .sidebar-logout-button { display: flex; align-items: center; width: 100%; min-height: 2.65rem; padding: .55rem .7rem; border: 0; border-radius: .4rem; color: #eaf4f3; background: transparent; cursor: pointer; text-align: left; text-decoration: none; }
+.sidebar-nav { display: grid; flex: 1; align-content: space-evenly; gap: .15rem; min-height: 0; margin-top: .55rem; overflow-y: visible; }
+.sidebar-nav > a, .sidebar-group > a, .sidebar-logout-button { display: flex; align-items: center; width: 100%; min-height: 2.4rem; padding: .4rem .7rem; border: 0; border-radius: .4rem; color: #eaf4f3; background: transparent; cursor: pointer; text-align: left; text-decoration: none; }
 .sidebar-nav > a:hover, .sidebar-nav > a[aria-current="page"], .sidebar-group > a:hover, .sidebar-group > a[aria-current="page"], .sidebar-logout-button:hover { color: white; background: #ffffff1d; }
 .sidebar-nav > a[aria-current="page"], .sidebar-group > a[aria-current="page"] { box-shadow: inset .22rem 0 0 #78c6ba; }
-.sidebar-group { display: grid; gap: .15rem; margin-top: .3rem; padding-top: .45rem; border-top: 1px solid #ffffff17; }
-.sidebar-group-label { padding: .35rem .7rem .15rem; color: #a9c5c1; font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.sidebar-group > a { min-height: 2.35rem; padding-left: 1.25rem; font-size: .92rem; }
-.sidebar-logout { margin-top: auto; padding-top: 1rem; border-top: 1px solid #ffffff1f; }
+.sidebar-group { display: grid; gap: .1rem; margin-top: .2rem; padding-top: .3rem; border-top: 1px solid #ffffff17; }
+.sidebar-group-label { padding: .25rem .7rem .1rem; color: #a9c5c1; font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.sidebar-group > a { min-height: 2.2rem; padding: .35rem .7rem .35rem 1.25rem; font-size: .92rem; }
+.sidebar-logout { margin-top: auto; padding-top: .55rem; border-top: 1px solid #ffffff1f; }
 .sidebar-logout-button { font-weight: 700; }
 .app-main { min-width: 0; }
 .mobile-header { display: none; }
@@ -186,6 +186,9 @@ th { color: #465260; background: #f9fafb; font-size: .8rem; letter-spacing: .02e
 .tailoring-readiness { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; margin: 1rem 0; }
 .tailoring-readiness > div { display: grid; gap: .2rem; padding: .75rem; border-radius: .4rem; background: var(--canvas); }
 .billing-add-confirmation { display: grid; gap: .2rem; }
+.billing-action-feedback { margin-top: .75rem; }
+.tailoring-add-actions { margin-top: .75rem; }
+[data-billing-status]:empty { display: none; }
 .billing-add-confirmation span { color: var(--success); }
 .current-bill-summary { border-color: #9fcac3; background: var(--accent-soft); }
 .current-bill-summary .eyebrow { margin-bottom: .1rem; }
@@ -255,6 +258,17 @@ th { color: #465260; background: #f9fafb; font-size: .8rem; letter-spacing: .02e
 .receipt-totals > div { padding: .8mm 0; border: 0; }
 .receipt-totals .receipt-grand { margin: 1mm 0; padding: 1.5mm 0; border-top: 1px solid #000; border-bottom: 1px solid #000; font-size: 13px; font-weight: 800; }
 .receipt-footer { padding-top: 2.5mm; border-top: 1px dashed #000; text-align: center; font-weight: 700; }
+
+@media (max-height: 600px) {
+  .sidebar { padding-top: .55rem; padding-bottom: .55rem; }
+  .sidebar-branding { padding-bottom: .45rem; }
+  .sidebar-nav { gap: 0; margin-top: .3rem; }
+  .sidebar-nav > a, .sidebar-group > a, .sidebar-logout-button { min-height: 1.95rem; padding-top: .2rem; padding-bottom: .2rem; }
+  .sidebar-group { gap: 0; margin-top: .1rem; padding-top: .15rem; }
+  .sidebar-group-label { padding-top: .15rem; padding-bottom: 0; }
+  .sidebar-group > a { min-height: 1.8rem; }
+  .sidebar-logout { padding-top: .25rem; }
+}
 
 @media (max-width: 760px) {
   .app-shell { display: block; }
