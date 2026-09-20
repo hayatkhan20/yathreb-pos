@@ -1,6 +1,5 @@
 """Server-rendered inventory, billing, finalized bills, and history."""
 
-from collections import defaultdict
 from datetime import date, datetime, time, timedelta, timezone
 import json
 import re
@@ -706,15 +705,25 @@ def index():
         context = _selection({})
         rows = list_stock(get_db())
         error = str(caught)
-    totals = defaultdict(int)
+    product_brand_totals = {}
     for row in rows:
-        totals[row["unit"]] += row["quantity"]
+        key = (row["product_id"], row["brand_id"])
+        total = product_brand_totals.setdefault(
+            key,
+            {
+                "product": row["product"],
+                "brand": row["brand"],
+                "unit": row["unit"],
+                "quantity": 0,
+            },
+        )
+        total["quantity"] += row["quantity"]
     return render_template(
         "index.html",
         **context,
         form=request.args,
         rows=rows,
-        totals=dict(totals),
+        product_brand_totals=list(product_brand_totals.values()),
         error=error,
     ), 400 if error else 200
 
@@ -760,6 +769,61 @@ def stock():
         ),
         code=303,
     )
+
+
+@bp.post("/stock/catalogue")
+def stock_catalogue():
+    """Create one catalogue level without leaving the Add Stock workflow."""
+    form = request.form
+    kind = form.get("kind", "")
+    selection = {
+        key: form.get(key, "")
+        for key in ("product_id", "brand_id", "article_id", "colour_id", "size_id")
+    }
+    try:
+        if kind == "product":
+            item_id = add_product(
+                get_db(),
+                form.get("name", ""),
+                form.get("classification", ""),
+                form.get("unit", ""),
+            )
+            selection = {"product_id": item_id}
+        elif kind == "brand":
+            item_id = add_brand(get_db(), form.get("name", ""), selection["product_id"])
+            selection.update(
+                brand_id=item_id, article_id="", colour_id="", size_id=""
+            )
+        elif kind == "article":
+            item_id = add_article(get_db(), form.get("name", ""), selection["brand_id"])
+            selection.update(article_id=item_id, colour_id="", size_id="")
+        elif kind == "colour":
+            item_id = add_colour(
+                get_db(),
+                form.get("name", ""),
+                selection["brand_id"],
+                selection["article_id"] or None,
+            )
+            selection.update(colour_id=item_id, size_id="")
+        elif kind == "size":
+            item_id = add_size(get_db(), form.get("name", ""), selection["colour_id"])
+            selection.update(size_id=item_id)
+        else:
+            raise DomainError("Choose a valid catalogue level to add.")
+
+        context = _selection(selection)
+    except DomainError as caught:
+        return jsonify(error=str(caught)), 400
+
+    redirect_parameters = {
+        key: context[key]
+        for key in ("product_id", "brand_id", "article_id", "colour_id", "size_id")
+        if context[key] is not None
+    }
+    return jsonify(
+        item={"id": item_id, "kind": kind},
+        redirect_url=url_for("web.stock", **redirect_parameters),
+    ), 201
 
 
 def _billing_customer_option(customer):

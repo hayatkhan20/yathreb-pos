@@ -63,13 +63,11 @@
 
 {% if rows %}
   <section aria-labelledby="totals-heading">
-    <h2 id="totals-heading">Filtered totals</h2>
-    <p class="section-note">Different units stay separate; they are never added into one quantity.</p>
+    <h2 id="totals-heading">Product and Brand totals</h2>
+    <p class="section-note">Each Brand is totalled within its Product. Article, colour and size detail remains in the table below.</p>
     <div class="totals">
-      {% for unit in ['metre', 'pair', 'piece'] %}
-        {% if totals.get(unit) is not none %}
-          <div class="total-card"><span>{{ unit_labels[unit]|title }}</span><strong>{{ totals[unit]|quantity }}</strong></div>
-        {% endif %}
+      {% for total in product_brand_totals %}
+        <div class="total-card" data-stock-brand-total><span>{{ total.product }} &middot; {{ total.brand }}</span><strong>{{ total.quantity|quantity }} {{ unit_labels[total.unit] }}</strong></div>
       {% endfor %}
     </div>
   </section>

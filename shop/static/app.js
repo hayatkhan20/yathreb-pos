@@ -254,6 +254,21 @@
     const unitLabel = entryFields.querySelector("[data-stock-entry-unit-label]");
     const quantity = entryForm.querySelector('[name="quantity"]');
     const quantityHint = entryFields.querySelector("[data-stock-entry-quantity-hint]");
+    const catalogueDialog = document.querySelector("[data-stock-catalogue-dialog]");
+    const catalogueForm = catalogueDialog
+      ? catalogueDialog.querySelector("[data-stock-catalogue-form]") : null;
+    const catalogueHeading = catalogueDialog
+      ? catalogueDialog.querySelector("[data-stock-catalogue-heading]") : null;
+    const catalogueParent = catalogueDialog
+      ? catalogueDialog.querySelector("[data-stock-catalogue-parent]") : null;
+    const catalogueError = catalogueDialog
+      ? catalogueDialog.querySelector("[data-stock-catalogue-error]") : null;
+    const catalogueNameLabel = catalogueDialog
+      ? catalogueDialog.querySelector("[data-stock-catalogue-name-label]") : null;
+    const productFields = catalogueDialog
+      ? catalogueDialog.querySelector("[data-stock-product-fields]") : null;
+    const productNote = catalogueDialog
+      ? catalogueDialog.querySelector("[data-stock-product-note]") : null;
     let latestStockRequest = 0;
     let loadingChoices = false;
     let choiceLoadFailed = false;
@@ -596,6 +611,84 @@
       updateEntryFields();
       updateReadyStatus();
     });
+
+    if (
+      catalogueDialog
+      && catalogueForm
+      && typeof catalogueDialog.showModal === "function"
+    ) {
+      const levelNames = {
+        product: "Product",
+        brand: "Brand",
+        article: "Article",
+        colour: "Colour",
+        size: "Size",
+      };
+
+      function catalogueParentText(kind) {
+        if (kind === "product") return "Create the Product, then continue with its Brand.";
+        if (kind === "brand") return `Product: ${selectedText("product")}`;
+        if (kind === "article") return `Brand: ${selectedText("brand")}`;
+        if (kind === "colour") {
+          const parent = classification() === "article_colour"
+            ? selectedText("article") : selectedText("brand");
+          return `${classification() === "article_colour" ? "Article" : "Brand"}: ${parent}`;
+        }
+        return `Colour: ${selectedText("colour")}`;
+      }
+
+      stockEntrySelection.querySelectorAll("[data-stock-catalogue-add]").forEach((link) => {
+        link.addEventListener("click", (event) => {
+          event.preventDefault();
+          const kind = link.dataset.stockCatalogueAdd;
+          catalogueForm.reset();
+          catalogueForm.elements.kind.value = kind;
+          catalogueHeading.textContent = `Add new ${levelNames[kind]}`;
+          catalogueNameLabel.textContent = `${levelNames[kind]} name`;
+          catalogueParent.textContent = catalogueParentText(kind);
+          catalogueError.hidden = true;
+          const addingProduct = kind === "product";
+          productFields.hidden = !addingProduct;
+          productNote.hidden = !addingProduct;
+          productFields.querySelectorAll("select").forEach((select) => {
+            select.disabled = !addingProduct;
+          });
+          catalogueDialog.showModal();
+          catalogueForm.elements.name.focus();
+        });
+      });
+
+      catalogueDialog.querySelectorAll("[data-close-stock-catalogue-dialog]").forEach((button) => {
+        button.addEventListener("click", () => catalogueDialog.close());
+      });
+
+      catalogueForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const saveButton = catalogueForm.querySelector("[data-save-stock-catalogue]");
+        saveButton.disabled = true;
+        catalogueError.hidden = true;
+        const payload = new FormData(catalogueForm);
+        Object.entries(selects).forEach(([level, select]) => {
+          payload.set(`${level}_id`, select.value);
+        });
+        try {
+          const response = await fetch(catalogueForm.action, {
+            method: "POST",
+            headers: { Accept: "application/json" },
+            body: payload,
+          });
+          const result = await response.json();
+          if (!response.ok) {
+            throw new Error(result.error || "The catalogue item could not be added.");
+          }
+          window.location.assign(result.redirect_url);
+        } catch (error) {
+          catalogueError.textContent = error.message;
+          catalogueError.hidden = false;
+          saveButton.disabled = false;
+        }
+      });
+    }
 
     fallback.hidden = true;
     updateEntryFields();
