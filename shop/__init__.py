@@ -1,6 +1,7 @@
 """Application factory. Startup never creates or migrates a database."""
 
 from datetime import timedelta
+import os
 from pathlib import Path
 import sqlite3
 
@@ -47,6 +48,7 @@ def create_app(data_dir=None, *, trusted_hosts=None, test_config=None):
         SESSION_COOKIE_SAMESITE="Strict",
         PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
         SESSION_REFRESH_EACH_REQUEST=False,
+        TAILOR_ACCESS_PIN=os.environ.get("YATHREB_TAILOR_PIN", "").strip(),
     )
     if test_config:
         app.config.update(test_config)
@@ -75,7 +77,16 @@ def create_app(data_dir=None, *, trusted_hosts=None, test_config=None):
             user = db.get_db().execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
             if user and user["session_version"] == session.get("session_version"):
                 g.user = user
-        if request.endpoint != "auth.login" and g.user is None:
+        endpoint = request.endpoint or ""
+        is_tailor_endpoint = endpoint.startswith("web.tailor_")
+        if is_tailor_endpoint:
+            if (
+                endpoint != "web.tailor_login"
+                and g.user is None
+                and session.get("tailor_access") is not True
+            ):
+                return redirect(url_for("web.tailor_login"))
+        elif endpoint != "auth.login" and g.user is None:
             return redirect(url_for("auth.login"))
         if request.method == "POST":
             verify_csrf()

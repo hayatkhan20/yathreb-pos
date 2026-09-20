@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ customer.name }} · Tailor View</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='tailor.css') }}">
+</head>
+<body>
+  <header class="tailor-topbar">
+    <a class="tailor-back" href="{{ url_for('web.tailor_home') }}">← Search</a>
+    <form method="post" action="{{ url_for('web.tailor_logout') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="tailor-link-button">Logout</button>
+    </form>
+  </header>
+  <main class="tailor-shell">
+    <section class="tailor-card tailor-customer-heading">
+      <p class="tailor-eyebrow">{{ customer.customer_number }}</p>
+      <h1>{{ customer.name }}</h1>
+      <p class="tailor-muted">{{ customer.primary_mobile }}</p>
+    </section>
+
+    {% if current_measurements %}
+      {% for card in current_measurements %}
+        <section class="tailor-card measurement-card">
+          <h2>{{ card.title }}</h2>
+          <dl class="measurement-grid">
+            {% for label, value in card.measurements %}
+              <div><dt>{{ label }}</dt><dd>{{ value|quantity }} in</dd></div>
+            {% endfor %}
+          </dl>
+          {% if card.styles %}
+            <div class="tailor-section">
+              <h3>Style</h3>
+              <div class="tailor-tags">{% for style in card.styles %}<span>{{ style }}</span>{% endfor %}</div>
+            </div>
+          {% endif %}
+          {% if card.notes %}
+            <div class="tailor-section">
+              <h3>Notes</h3>
+              <p>{{ card.notes }}</p>
+            </div>
+          {% endif %}
+        </section>
+      {% endfor %}
+    {% else %}
+      <section class="tailor-card tailor-empty">No measurements are saved for this customer yet.</section>
+    {% endif %}
+  </main>
+</body>
+</html>

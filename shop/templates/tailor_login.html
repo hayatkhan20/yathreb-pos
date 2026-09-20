@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tailor View · Yathreb</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='tailor.css') }}">
+</head>
+<body>
+  <main class="tailor-shell tailor-login-shell">
+    <section class="tailor-card tailor-login-card">
+      <p class="tailor-eyebrow">Yathreb Fabrics & Tailors</p>
+      <h1>Tailor View</h1>
+      <p class="tailor-muted">Read-only access to current customer measurements.</p>
+      {% if error %}<div class="tailor-alert" role="alert">{{ error }}</div>{% endif %}
+      <form method="post" action="{{ url_for('web.tailor_login') }}" class="tailor-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="tailor-pin">Access PIN</label>
+        <input id="tailor-pin" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,12}" minlength="4" maxlength="12" autocomplete="current-password" required autofocus>
+        <button type="submit">Open Tailor View</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>
