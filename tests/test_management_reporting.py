@@ -126,10 +126,10 @@ class ManagementReportingTests(unittest.TestCase):
 
         css = self.client.get("/static/app.css").get_data(as_text=True)
         self.assertIn(
-            ".sidebar-nav { display: grid; gap: .1rem; min-height: 0; margin-top: .65rem; overflow-y: visible; }",
+            ".sidebar-nav { display: grid; flex: 1; align-content: space-evenly; gap: .15rem; min-height: 0; margin-top: .55rem; overflow-y: visible; }",
             css,
         )
-        self.assertIn("@media (max-height: 720px)", css)
+        self.assertIn("@media (max-height: 600px)", css)
 
         sales_page = self.client.get("/sales/daily").get_data(as_text=True)
         self.assertIn('href="/sales" aria-current="page">Sales</a>', sales_page)
