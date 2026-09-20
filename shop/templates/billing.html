@@ -67,7 +67,7 @@
       </label>
     </div>
     <p class="form-hint" data-sale-mode-status aria-live="polite"></p>
-    <noscript><p class="form-hint">All sections remain available below when JavaScript is unavailable.</p></noscript>
+    <noscript><p class="form-hint">All sale sections remain available below.</p></noscript>
   </section>
 
   <section class="card" aria-labelledby="billing-customer-heading">
@@ -151,7 +151,7 @@
         <button type="submit" class="secondary" name="action" value="open_selection" formnovalidate>Open selection</button>
       </div>
     </div>
-    <p class="form-hint" data-billing-status aria-live="polite">Dependent choices update automatically when JavaScript is available.</p>
+    <p class="form-hint" data-billing-status aria-live="polite"></p>
     <noscript><p class="form-hint">Choose one parent at a time and use Open selection to load the next level. Your bill draft is carried with the form.</p></noscript>
   </section>
 
@@ -216,7 +216,7 @@
       <button type="button" class="primary" data-add-bill-line>Add to bill</button>
       <noscript><button type="submit" class="primary" name="action" value="add_line">Add to bill</button></noscript>
     </div>
-    <div class="alert success billing-add-confirmation" role="status" aria-live="polite" tabindex="-1" data-billing-confirmation{% if not product_confirmation %} hidden{% endif %}>
+    <div class="alert success billing-add-confirmation billing-action-feedback" role="status" aria-live="polite" tabindex="-1" data-billing-confirmation{% if not product_confirmation %} hidden{% endif %}>
       <strong data-billing-confirmation-heading>{% if product_confirmation %}{{ product_confirmation.product }} added to the current bill.{% endif %}</strong>
       <span data-billing-confirmation-detail>{% if product_confirmation %}{{ product_confirmation.description }} &middot; {{ product_confirmation.quantity|quantity }} {{ unit_labels[product_confirmation.unit] }}{% endif %}</span>
     </div>
@@ -287,7 +287,7 @@
       </fieldset>
       <div class="field"><label for="order-notes">Tailoring order notes <span class="optional">optional; shared by this order</span></label><textarea id="order-notes" name="order_notes" maxlength="2000" rows="3">{{ order_notes }}</textarea></div>
       <div class="form-actions"><button type="submit" class="primary" name="action" value="add_tailoring"{% if not tailoring_selection.measurement or (tailoring_selection.category != 'Other / Custom Item' and not tailoring_selection.rate) %} disabled{% endif %}>Add tailoring to bill</button></div>
-      {% if notice and feedback_target == 'tailoring' %}<div class="alert success" role="status">{{ notice }}</div>{% endif %}
+      {% if notice and feedback_target == 'tailoring' %}<div class="alert success billing-action-feedback" role="status">{{ notice }}</div>{% endif %}
     {% endif %}
   </section>
 
