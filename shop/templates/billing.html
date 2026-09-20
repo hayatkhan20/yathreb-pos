@@ -14,12 +14,8 @@
   <a class="button secondary" href="{{ url_for('web.sales_history') }}">Sales history</a>
 </div>
 
-{% if error %}<div class="alert error" role="alert">{{ error }} The current bill has been kept where possible.</div>{% endif %}
-{% if notice %}<div class="alert success" role="status">{{ notice }}</div>{% endif %}
-<div class="alert success billing-add-confirmation" role="status" aria-live="polite" tabindex="-1" data-billing-confirmation{% if not product_confirmation %} hidden{% endif %}>
-  <strong data-billing-confirmation-heading>{% if product_confirmation %}{{ product_confirmation.product }} added to the current bill.{% endif %}</strong>
-  <span data-billing-confirmation-detail>{% if product_confirmation %}{{ product_confirmation.description }} &middot; {{ product_confirmation.quantity|quantity }} {{ unit_labels[product_confirmation.unit] }}{% endif %}</span>
-</div>
+{% if error and not feedback_target %}<div class="alert error" role="alert">{{ error }} The current bill has been kept where possible.</div>{% endif %}
+{% if notice and not feedback_target %}<div class="alert success" role="status">{{ notice }}</div>{% endif %}
 
 <section id="current-bill-summary" class="card current-bill-summary" aria-labelledby="current-bill-summary-heading" tabindex="-1" data-current-bill-summary{% if not bill_line_count %} hidden{% endif %}>
   <div class="section-heading">
@@ -76,6 +72,8 @@
 
   <section class="card" aria-labelledby="billing-customer-heading">
     <div class="section-heading"><div><h2 id="billing-customer-heading">1. Customer</h2><p class="section-note">Required for tailoring or any unpaid balance. A fully paid product-only bill may remain anonymous.</p></div></div>
+    {% if error and feedback_target == 'customer' %}<div class="alert error" role="alert">{{ error }} The current bill has been kept where possible.</div>{% endif %}
+    {% if notice and feedback_target == 'customer' %}<div class="alert success" role="status">{{ notice }}</div>{% endif %}
     {% if customer %}
       <div class="selected-customer" data-selected-customer>
         <div><span>Selected customer</span><strong>{{ customer.customer_number }} &middot; {{ customer.name }}</strong><span>{{ customer.primary_mobile }}</span></div>
@@ -165,6 +163,8 @@
     </section>
   {% endif %}
 
+  {% if error and feedback_target == 'product' %}<div class="alert error" role="alert">{{ error }} The current bill has been kept where possible.</div>{% endif %}
+
   <section
     class="card variant-card"
     data-billing-variant
@@ -197,6 +197,7 @@
       </div>
       <button type="submit" class="secondary" name="action" value="save_default" formnovalidate>Save default price</button>
     </div>
+    {% if notice and feedback_target == 'product' %}<div class="alert success" role="status">{{ notice }}</div>{% endif %}
 
     <div class="field-row billing-line-fields">
       <div class="field">
@@ -215,12 +216,17 @@
       <button type="button" class="primary" data-add-bill-line>Add to bill</button>
       <noscript><button type="submit" class="primary" name="action" value="add_line">Add to bill</button></noscript>
     </div>
+    <div class="alert success billing-add-confirmation" role="status" aria-live="polite" tabindex="-1" data-billing-confirmation{% if not product_confirmation %} hidden{% endif %}>
+      <strong data-billing-confirmation-heading>{% if product_confirmation %}{{ product_confirmation.product }} added to the current bill.{% endif %}</strong>
+      <span data-billing-confirmation-detail>{% if product_confirmation %}{{ product_confirmation.description }} &middot; {{ product_confirmation.quantity|quantity }} {{ unit_labels[product_confirmation.unit] }}{% endif %}</span>
+    </div>
   </section>
 
   {% if variant_error %}<div class="alert error" data-variant-error data-sale-mode-section="products" role="alert">{{ variant_error }}</div>{% else %}<div class="alert error" data-variant-error data-sale-mode-section="products" role="alert" hidden></div>{% endif %}
 
   <section class="card tailoring-addition" aria-labelledby="tailoring-add-heading" data-tailoring-addition data-sale-mode-section="tailoring">
     <div class="section-heading"><div><h2 id="tailoring-add-heading">3. Add tailoring</h2><p class="section-note">Tailoring requires a selected customer, saved measurements and one promised date for the complete tailoring order.</p></div></div>
+    {% if error and feedback_target == 'tailoring' %}<div class="alert error" role="alert">{{ error }} The current bill has been kept where possible.</div>{% endif %}
     <div class="filter-grid">
       <div class="field"><label for="tailoring-category">Garment</label><select id="tailoring-category" name="tailoring_category" data-tailoring-refresh>
         {% for category in tailoring_selection.categories %}<option value="{{ category }}"{% if tailoring_selection.category == category %} selected{% endif %}>{{ category }}</option>{% endfor %}
@@ -281,6 +287,7 @@
       </fieldset>
       <div class="field"><label for="order-notes">Tailoring order notes <span class="optional">optional; shared by this order</span></label><textarea id="order-notes" name="order_notes" maxlength="2000" rows="3">{{ order_notes }}</textarea></div>
       <div class="form-actions"><button type="submit" class="primary" name="action" value="add_tailoring"{% if not tailoring_selection.measurement or (tailoring_selection.category != 'Other / Custom Item' and not tailoring_selection.rate) %} disabled{% endif %}>Add tailoring to bill</button></div>
+      {% if notice and feedback_target == 'tailoring' %}<div class="alert success" role="status">{{ notice }}</div>{% endif %}
     {% endif %}
   </section>
 
@@ -292,6 +299,8 @@
       </div>
       <strong data-bill-line-count>{{ bill_line_count }} item{{ '' if bill_line_count == 1 else 's' }}</strong>
     </div>
+    {% if error and feedback_target == 'bill' %}<div class="alert error" role="alert">{{ error }} The current bill has been kept where possible.</div>{% endif %}
+    {% if notice and feedback_target == 'bill' %}<div class="alert success" role="status">{{ notice }}</div>{% endif %}
     <div class="table-wrap">
       <table>
         <thead><tr><th>Type</th><th>Item</th><th class="number">Quantity</th><th>Unit / rate</th><th class="number">Unit price</th><th class="number">Line total</th><th>Cloth / promised date</th><th><span class="visually-hidden">Action</span></th></tr></thead>
@@ -320,6 +329,8 @@
 
   <section class="card billing-checkout" aria-labelledby="bill-totals-heading">
     <h2 id="bill-totals-heading">5. Complete the bill</h2>
+    {% if error and feedback_target == 'checkout' %}<div class="alert error" role="alert">{{ error }} The current bill has been kept where possible.</div>{% endif %}
+    {% if notice and feedback_target == 'checkout' %}<div class="alert success" role="status">{{ notice }}</div>{% endif %}
     <div class="billing-checkout-grid">
       <div class="stacked-form">
         <div class="field">

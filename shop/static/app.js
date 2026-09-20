@@ -1721,7 +1721,7 @@
         event.preventDefault();
         return;
       }
-      if (actionInput.value === "add_tailoring") {
+      if (actionInput.value && actionInput.value !== "finalize") {
         window.sessionStorage.setItem(billingScrollKey, String(window.scrollY));
       }
       if (actionInput.value) {

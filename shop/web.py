@@ -464,7 +464,7 @@ def _money_input(value):
 
 def _render_billing(
     source, *, draft=None, tailoring_draft=None, error=None, notice=None,
-    product_confirmation=None, status=200,
+    feedback_target=None, product_confirmation=None, status=200,
 ):
     try:
         context = _selection(source)
@@ -633,6 +633,7 @@ def _render_billing(
         line_price=line_price,
         default_price=default_price,
         product_confirmation=product_confirmation,
+        feedback_target=feedback_target,
         sale_mode=sale_mode,
         tailors=list_tailors(get_db(), active_only=True),
     )
@@ -878,6 +879,20 @@ def billing_tailors():
     return jsonify(tailor=tailor), 201
 
 
+def _billing_feedback_target(action):
+    if action.startswith("select_customer:") or action in {"search_customer", "clear_customer"}:
+        return "customer"
+    if action.startswith("remove_line:") or action.startswith("remove_tailoring:"):
+        return "bill"
+    if action in {"open_selection", "add_line", "save_default"}:
+        return "product"
+    if action in {"open_tailoring", "add_tailoring"}:
+        return "tailoring"
+    if action == "finalize":
+        return "checkout"
+    return None
+
+
 @bp.route("/billing", methods=["GET", "POST"])
 def billing():
     if request.method == "GET":
@@ -886,6 +901,7 @@ def billing():
     form = request.form
     draft = None
     tailoring_draft = None
+    action = ""
     try:
         actions = form.getlist("action")
         if len(actions) != 1:
@@ -917,7 +933,6 @@ def billing():
             source["customer_query"] = ""
             return _render_billing(
                 source, draft=draft, tailoring_draft=tailoring_draft,
-                notice=f"Selected {selected['customer_number']} · {selected['name']}.",
             )
         if action == "clear_customer":
             if tailoring_draft:
@@ -991,6 +1006,7 @@ def billing():
             return _render_billing(
                 source, draft=draft, tailoring_draft=tailoring_draft,
                 notice="Product item removed from the bill draft.",
+                feedback_target="bill",
             )
         if action.startswith("remove_tailoring:"):
             index_text = action.partition(":")[2]
@@ -1003,6 +1019,7 @@ def billing():
             return _render_billing(
                 form, draft=draft, tailoring_draft=tailoring_draft,
                 notice="Tailoring item removed from the bill draft.",
+                feedback_target="bill",
             )
         if action == "save_default":
             context = _selection(form)
@@ -1019,6 +1036,7 @@ def billing():
                 draft=draft,
                 tailoring_draft=tailoring_draft,
                 notice="Default selling price updated for this exact variant.",
+                feedback_target="product",
             )
         if action == "add_tailoring":
             customer = _billing_customer(form)
@@ -1087,6 +1105,7 @@ def billing():
                 source, draft=draft,
                 tailoring_draft=_tailoring_draft_from_quote(quoted_tailoring, candidate),
                 notice="Tailoring item added to the bill draft.",
+                feedback_target="tailoring",
             )
         if action != "finalize":
             raise DomainError("Choose a valid billing action.")
@@ -1132,7 +1151,7 @@ def billing():
     except DomainError as error:
         return _render_billing(
             form, draft=draft, tailoring_draft=tailoring_draft,
-            error=str(error), status=400,
+            error=str(error), feedback_target=_billing_feedback_target(action), status=400,
         )
 
 
