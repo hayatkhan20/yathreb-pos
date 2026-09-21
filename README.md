@@ -1,83 +1,293 @@
-# Shop inventory foundation
+# Yathreb POS
 
-This milestone provides the persistent catalogue and positive stock-entry foundation for Phase 1. It is not the completed POS: it does not record sales, prices, payments, receipts, returns, or sales reports.
+Yathreb POS is a lightweight, local-first inventory, billing, customer-account and tailoring application built for Yathreb Fabrics & Tailors. It runs on the shop’s Windows computer, stores operational data in one local SQLite database, and serves the management interface through a browser.
 
-## Stack and operating shape
+The source has progressed from its original inventory-only foundation to schema version 5, covering day-to-day counter sales, tailoring orders, customer measurements, Tailor assignments, payments, receipts and reporting. The final verified baseline contains 131 automated tests.
 
-The application uses Python 3.13, Flask 3.1.3, Waitress 3.0.2, SQLite, server-rendered HTML/CSS, and a small self-hosted vanilla JavaScript enhancement. SQLite is included with Python. There is no Node.js toolchain, frontend compilation, container, or separate database server. This keeps the installation and memory use modest for the recorded Windows 10 shop computer.
+## Current status
 
-The main shop computer owns one local database file and runs one application service. Its browser can connect through `127.0.0.1`. An optional second terminal can connect to that same service over the private shop network; it must not have another copy of the working database. Waitress supports Windows and Python 3.9 or newer, Flask 3.1 supports Python 3.9 or newer, and Python 3.13 supports Windows versions older than Windows 10 as documented by their maintainers:
+The current source provides a working operational foundation for one clothing and tailoring shop:
 
-- [Python 3.13 on Windows](https://docs.python.org/3.13/using/windows.html)
-- [Flask installation and supported Python versions](https://flask.palletsprojects.com/en/stable/installation/)
-- [Waitress platform support](https://docs.pylonsproject.org/projects/waitress/en/latest/)
+- schema version 5 with explicit initialization and migration controls;
+- one authoritative database on the main shop computer;
+- product inventory, billing, tailoring, customers, payments and reports;
+- browser-printable 80 mm bill and payment receipts;
+- a separate read-only Tailor View for a phone on the trusted shop LAN;
+- non-overwriting, integrity-checked backup and restore commands;
+- 131 automated tests covering the current foundation.
 
-The exact Windows 10 build and 32/64-bit system type still need to be checked before choosing the matching Python installer.
+The application is intentionally local and lightweight. It has no cloud database, Node.js build, Docker service, microservice layer or separate database server.
 
-## What the source implements
+## Development journey
 
-- The seven recorded Product definitions: Fabric, Chappal / Peshawari Chappal, Shawl, Wallet, Studs, Waistcoat, and Coat.
-- Fabric as Product → Brand → Article → Colour; sized products as Product → Brand → Colour → Size; the other recorded products as Product → Brand → Colour.
-- Parent-scoped ownership throughout: brands belong to products, Fabric articles belong to brands, Fabric colours belong to articles, other colours belong to brands, and sizes belong to colours.
-- Duplicate names are rejected within an immediate parent, while the same article, colour, or size name can be used under a different parent.
-- Editable Product and catalogue labels with permanent internal IDs. Renaming does not move stock or rewrite saved history.
-- A stock variant can be created only from a valid complete chain whose records belong to the same parents.
-- Metres for Fabric and pairs for Studs as confirmed units. The proposed pair/piece units for the other seeded products remain unconfirmed and block stock entry until the owner explicitly chooses one.
-- Quantities stored as scaled integers, never binary floating point. Metres can be represented to three decimal places; this is storage capacity and does not decide the shop’s minimum cutting increment. Pairs and pieces require whole numbers.
-- Permanent positive movements for opening stock and incoming stock. An opening entry is limited to the first movement for an exact combination. Corrections and all sale-related movement types remain for later policy work.
-- Transactional exact-variant creation and stock movement saving. A unique form reference makes a repeated identical submission safe and rejects reuse with changed details.
-- SQLite foreign keys, validation constraints, a 10-second busy wait, `BEGIN IMMEDIATE` writes, and WAL mode so multiple browser terminals use the same authoritative service safely for this milestone’s stock additions.
-- Current Stock choices that cascade immediately within the selected parent chain. JavaScript loads choices from the authenticated service and clears invalid descendants; one Apply filters button refreshes the stock results after selection.
-- A server-rendered no-JavaScript fallback that progressively loads the next Current Stock level through the same GET form, plus catalogue anchors that retain the relevant management position after open, add and rename actions.
-- A current-stock page with Product-relevant, parent-scoped filters and separate metre, pair, and piece totals.
-- An append-only movement-history view that preserves the names and unit recorded at entry time.
-- A single owner login, CSRF protection, host validation, conservative request limits, security headers, and a short global login-attempt lock. Staff roles and permissions remain unresolved.
-- Explicit initialization, integrity checking, password reset, non-overwriting backup, and restore-to-new-directory commands. Application startup never creates, reseeds, or migrates a database.
+The project was delivered incrementally so that each stage preserved earlier data and behavior:
+
+1. **Inventory foundation** — explicit database initialization, owner authentication, the Product catalogue, fixed-precision stock movements, Current Stock and movement history.
+2. **Catalogue and stock usability** — parent-scoped cascading selectors, inline catalogue creation, position-preserving forms, exact-variant stock entry and Product/Brand totals.
+3. **Billing and sales** — default and bill-time prices, multi-line bills, discounts, payments at sale time, negative-stock visibility, immutable sale snapshots and 80 mm receipts.
+4. **Management and reporting** — task-focused Dashboard, Sales History, daily and monthly Pakistan-time reports, searchable bills and guarded deletion of unused catalogue records.
+5. **Customers and tailoring** — customer identities, normalized mobile search, measurement revisions, stitching-rate revisions, product-only, tailoring-only and combined bills.
+6. **Customer accounts and later payments** — derived balances, bill-specific payments, immutable `PAY-######` records and printable payment acknowledgements.
+7. **Tailor operations** — Tailor setup, optional assignment while billing, later assignment or reassignment per finalized garment, and schema-v4-to-v5 migration.
+8. **Final UI and deployment** — contextual Billing feedback, preserved page position, single customer-facing BILL identity, compact navigation, full regression verification and transfer to the shop PC.
+
+The historical requirements and decision log remain in `Clothing-Stitching-Project-Record.md`. The concise current behavior is maintained in `CURRENT-PROJECT-STATE.md`.
+
+## Technology
+
+- Python 3.13
+- Flask 3.1.3
+- Waitress 3.0.2
+- SQLite from the Python standard library
+- Server-rendered Jinja HTML
+- Self-hosted CSS and vanilla JavaScript
+- Windows 10 as the recorded production platform
+
+## Operating model
+
+The main shop computer runs one Waitress service and owns one database file on its local disk. The management browser normally connects through:
+
+```text
+http://127.0.0.1:8080
+```
+
+An optional second terminal or Tailor phone may connect to the same service through one specific private IPv4 address while both devices are on the trusted shop network.
+
+Important rules:
+
+- Keep the working SQLite database on the main computer’s local disk.
+- Never place `inventory.sqlite3` on a shared network drive.
+- Never run separate operational databases on multiple terminals.
+- Never expose the service through public router port forwarding.
+- Application startup never initializes, clears, reseeds or migrates a database automatically.
+
+## Main functionality
+
+### Dashboard and navigation
+
+- Task-oriented Dashboard with New Sale as the primary action.
+- Direct access to Billing, Orders / Collection, Customers, Current Stock, Add Stock and Sales.
+- Secondary Setup group for Catalogue, Measurements, Stitching Rates and Tailors.
+- Responsive mobile navigation and active-page states.
+
+### Catalogue and inventory
+
+The seven seeded Product definitions are:
+
+| Product | Required hierarchy | Unit status |
+| --- | --- | --- |
+| Fabric | Product → Brand → Article → Colour | Metres confirmed |
+| Chappal / Peshawari Chappal | Product → Brand → Colour → Size | Pairs proposed; owner confirmation required |
+| Shawl | Product → Brand → Colour | Pieces proposed; owner confirmation required |
+| Wallet | Product → Brand → Colour | Pieces proposed; owner confirmation required |
+| Studs | Product → Brand → Colour | Pairs confirmed |
+| Waistcoat | Product → Brand → Colour → Size | Pieces proposed; owner confirmation required |
+| Coat | Product → Brand → Colour → Size | Pieces proposed; owner confirmation required |
+
+Catalogue behavior:
+
+- Products, Brands, Articles, Colours and Sizes use stable integer identities.
+- Every child belongs to its immediate parent; cross-parent combinations are rejected.
+- Normalized names are unique within the same immediate parent and may repeat under different parents.
+- Labels may be renamed without moving stock or rewriting saved history.
+- Unused leaf records can be deleted only after explicit confirmation.
+- The seven seeded Product definitions cannot be deleted.
+- Proposed pair/piece units must be explicitly confirmed before stock is entered.
+
+Inventory behavior:
+
+- Opening and incoming stock are stored as append-only movements.
+- Exact Product variants are validated against the complete parent chain.
+- Fabric supports quantities to three decimal places; pair and piece units require whole numbers.
+- Current balances are derived from stock movements.
+- Current Stock provides Product/Brand summaries, exact-variant filtering and movement history.
+- Submission keys and content digests prevent duplicate stock writes.
+- Sales may make stock negative; the shortage remains visible and later incoming stock corrects the balance normally.
+
+### Billing and sales
+
+Billing supports:
+
+- product-only sales;
+- tailoring-only sales;
+- combined product and stitching sales;
+- multiple Product and tailoring lines on one bill;
+- exact-variant default selling prices;
+- editable bill-time prices that do not change the saved default;
+- one fixed PKR discount;
+- amount paid at finalization and a derived remaining balance;
+- anonymous fully-paid product-only bills;
+- required existing Customers for tailoring or outstanding balances;
+- automatic linking of one current-bill Fabric line to tailoring;
+- explicit cloth selection when several Fabric lines are available;
+- Customer-provided cloth and eligible Fabric from an earlier Customer bill;
+- visible negative-stock warnings without blocking a sale.
+
+Each finalized bill receives one customer-facing `BILL-########` number. Product and tailoring lines, labels, quantities, prices, discounts, totals and stock movements are saved atomically and remain immutable. The server recalculates all totals and protects finalization against duplicate submissions.
+
+The internal `TAIL-######` identity remains available in Orders / Collection but is not printed as a second customer-facing transaction number.
+
+### Customers, measurements and stitching rates
+
+- Sequential `CUST-######` Customer identities.
+- Search by Customer number, name or normalized primary/alternate mobile.
+- Editable contact details without changing Customer identity.
+- Duplicate normalized primary mobiles are blocked by default.
+- Derived account totals and outstanding balances.
+- Append-only measurement revisions.
+
+The seven standard measurement templates are:
+
+1. Pakistani Waistcoat
+2. Three-Piece Waistcoat
+3. Coat
+4. Sherwani
+5. Pant
+6. Shalwar Kameez
+7. Shirt
+
+`Other / Custom Item` supports a custom description and flexible named measurements. It is not an eighth standard template.
+
+Standard tailoring requires the Customer’s latest matching measurements and a configured current stitching rate. Stitching rates are append-only PKR revisions. Custom items use a manual stitching price. Finalized garments retain immutable measurement and rate snapshots.
+
+### Tailoring orders and Tailor assignment
+
+- Orders / Collection lists finalized tailoring orders.
+- Search by BILL number, TAIL number or Customer identity.
+- Order detail shows Customer, promised date, cloth source, measurements, bill values and current balance.
+- Tailors are maintained in a small Setup page and can be made inactive without changing old records.
+- Each garment line may be assigned while billing or later from Order Detail.
+- A Tailor may be reassigned or cleared.
+- One assignment applies to every piece in that line; garments going to different Tailors should use separate bill lines.
+- Financial values, bill lines and measurement snapshots remain immutable.
+
+The schema defines Received, In Progress, Ready and Delivered statuses. A complete operational status-transition workflow is not yet implemented.
+
+### Customer accounts and payments
+
+- Customer accounts combine product-only, tailoring-only and combined bills.
+- Total billed, total paid and current outstanding are derived from immutable transactions.
+- Later payments apply to one explicit outstanding Customer bill.
+- Payments receive sequential `PAY-######` identities.
+- Duplicate payment retries are idempotent.
+- Overpayment is rejected.
+- Later payments do not rewrite the original bill, its initial paid amount, receipt snapshots or stock movements.
+- Successful payments produce an 80 mm printable acknowledgement.
+
+### Sales, reports and printing
+
+- Sales History searches by bill number, Customer name or mobile.
+- Daily reports use Pakistan Standard Time and default to the current Pakistan date.
+- Monthly reports default to the current Pakistan month.
+- Reports show bill counts and saved subtotal, discount, paid and remaining values.
+- Finalized bills and payment acknowledgements are printable in an 80 mm browser layout.
+- Printing and reprinting never create another sale or deduct stock.
+
+The current implementation uses the browser print dialog. Silent printing and printer-specific automation are not included.
+
+### Read-only Tailor View
+
+A separate Tailor View is available at:
+
+```text
+/tailor
+```
+
+It:
+
+- uses a separate numeric PIN instead of the management owner login;
+- accepts a configured PIN of 4–12 digits;
+- searches Customers by ID, name or mobile;
+- shows only each Customer’s current saved measurements, selected styles and notes;
+- cannot open management pages;
+- cannot create or edit Customers, measurements, bills or payments.
+
+Configure the PIN for the current Windows user before starting the service:
+
+```powershell
+[Environment]::SetEnvironmentVariable(
+    "YATHREB_TAILOR_PIN",
+    "CHOOSE-A-PRIVATE-4-TO-12-DIGIT-PIN",
+    "User"
+)
+
+$env:YATHREB_TAILOR_PIN = [Environment]::GetEnvironmentVariable(
+    "YATHREB_TAILOR_PIN",
+    "User"
+)
+```
+
+Do not commit the real PIN to source control.
+
+The current Tailor View is a local browser application. Automatic discovery across changing Wi-Fi networks and a native Android wrapper are future work.
+
+## Data and transaction guarantees
+
+- Money is stored as integer PKR paisa.
+- Quantities are stored as integer thousandths.
+- Line totals are rounded half-up to the nearest paisa.
+- Foreign keys and database triggers enforce critical relationships.
+- Writes use serialized transactions with a busy timeout.
+- SQLite WAL mode supports the application service’s concurrent browser requests.
+- Stock and financial retries use request identities and content digests.
+- Finalized bills, item snapshots, payments and stock movements are immutable.
+- Billing drafts are untrusted input and are fully revalidated at finalization.
+- Application startup refuses a missing, unsupported or incorrectly identified database.
+- Backups and restores are checked before being accepted.
+
+## Security controls
+
+- One authenticated owner account.
+- Scrypt password hashing.
+- CSRF validation for POST requests.
+- Strict session cookies and session invalidation.
+- Login throttling and a global login guard.
+- Trusted-host validation.
+- Request-size and form-part limits.
+- `Cache-Control: no-store`.
+- Content Security Policy, clickjacking protection, MIME sniffing protection and same-origin referrer policy.
+- Separate restricted Tailor session.
+- Local/private-LAN binding only.
+
+Staff roles and granular permissions are not yet implemented.
 
 ## Source layout
 
 ```text
-manage.py                         Setup, check, backup, restore, and service commands
-requirements.txt                  Direct Python dependencies
-shop/__init__.py                  Flask application factory and request safeguards
-shop/auth.py                      Owner sign-in, sign-out, CSRF, and login throttling
-shop/db.py                        SQLite connection and explicit initialization
-shop/inventory.py                 Catalogue and stock-ledger operations
-shop/web.py                       Server-rendered routes
-shop/migrations/001_initial.sql   Initial schema and Product metadata
-shop/templates/                   Browser pages
-shop/static/app.css               Local responsive styling
-shop/static/app.js                Cascading filters and fragment scrolling
-tests/                            Data, web behavior, and recovery checks for the user to run
+manage.py                         Setup, schema check, migration, backup, restore and service commands
+requirements.txt                  Flask and Waitress versions
+shop/__init__.py                  Application factory, authentication boundary and security headers
+shop/auth.py                      Owner login/logout and CSRF handling
+shop/db.py                        Explicit SQLite lifecycle and schema identity checks
+shop/inventory.py                 Catalogue, stock, sales, Customers, tailoring, Tailors and payments
+shop/web.py                       Management and Tailor View routes
+shop/migrations/001_initial.sql   Full schema-v4 foundation and seeded Products
+shop/migrations/002_tailors.sql   Explicit schema-v4 to schema-v5 Tailor migration
+shop/templates/                   Server-rendered management, receipt and Tailor View pages
+shop/static/app.css               Responsive screen and 80 mm print styling
+shop/static/app.js                Cascading selectors, dialogs, billing draft behavior and navigation
+tests/                            Model, web, security, reporting, recovery and regression tests
+CURRENT-PROJECT-STATE.md          Concise current implementation record
+Clothing-Stitching-Project-Record.md  Historical requirements and decision record
 ```
 
-The `data`, `trial-data`, timestamped earlier-trial, `restore-check`, and `backups` directories are ignored by Git. No database or dependency lockfile is included.
+Operational data directories, virtual environments, backups, restore checks and SQLite files are excluded from Git.
 
-## Windows setup and verification
+## Windows installation
 
-Use 64-bit Python when Windows reports a 64-bit operating system; otherwise use the 32-bit Python installer. Install a current Python 3.13 release from Python.org with the Python launcher and `pip`. All commands below use Windows PowerShell and this working directory:
+Open PowerShell in the project directory. The recorded development and shop deployments use paths similar to:
 
-```powershell
-Set-Location 'C:\Users\hanif\Desktop\Yathreb-Safeer\Inventory'
+```text
+C:\Users\<user>\Yathreb-Safeer\Inventory
 ```
 
-First inspect the operating system before selecting an installer:
-
-```powershell
-Get-CimInstance Win32_OperatingSystem | Select-Object Caption, Version, OSArchitecture
-```
-
-Expected result: a row identifying Windows 10, its build/version, and either a 64-bit or 32-bit architecture. If it does not report Windows 10, stop and review runtime compatibility before installation.
-
-After installing the matching Python 3.13 release, verify the launcher:
+Check Python:
 
 ```powershell
 py -3.13 --version
 ```
 
-Expected result: `Python 3.13.x`.
-
-Create a project-local virtual environment and install the declared dependencies:
+Create the local virtual environment and install dependencies:
 
 ```powershell
 py -3.13 -m venv .venv
@@ -85,121 +295,256 @@ py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Expected result: `.venv` is created, and pip reports successful installation of Flask 3.1.3, Waitress 3.0.2, and their dependencies. Pip may generate only its normal environment metadata; there is no project lockfile to fabricate.
+Expected direct dependencies:
 
-Run the automated checks. They create temporary databases outside the working data directories and remove them afterward:
+```text
+Flask==3.1.3
+waitress==3.0.2
+```
+
+## Database lifecycle
+
+Examples below use `data-v4` as the operational directory.
+
+### Create a fresh database
+
+Run this once only when no database exists:
+
+```powershell
+.\.venv\Scripts\python.exe .\manage.py --data-dir .\data-v4 init
+```
+
+Initialization prompts for one owner username and a 12–128-character password. It creates schema version 5, the seven Product definitions and no sample Brands, stock, Customers, stitching rates or Tailors.
+
+Initialization refuses to overwrite any existing database.
+
+### Check an existing database
+
+```powershell
+.\.venv\Scripts\python.exe .\manage.py --data-dir .\data-v4 check
+```
+
+A valid current database reports:
+
+- SQLite integrity: `ok`
+- foreign keys: `ok`
+- schema version: `5`
+- Product hierarchy: `ok`
+- sales, Customer, measurement, tailoring, Tailor-assignment and payment foundation: `ok`
+
+### Upgrade a verified schema-v4 database
+
+Use this only for an existing schema-v4 database that has not already been upgraded. The command creates and validates a mandatory recovery backup before applying the Tailor schema:
+
+```powershell
+$backupStamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$upgradeBackup = ".\backups\data-v4-before-tailors-$backupStamp.sqlite3"
+
+.\.venv\Scripts\python.exe .\manage.py `
+    --data-dir .\data-v4 `
+    upgrade-v5 `
+    --backup-to $upgradeBackup
+```
+
+Never run `upgrade-v5` on a schema-v5 database.
+
+### Reset the owner password
+
+```powershell
+.\.venv\Scripts\python.exe .\manage.py --data-dir .\data-v4 reset-password
+```
+
+The password change invalidates existing management sessions.
+
+## Run the application
+
+Local management access:
+
+```powershell
+.\.venv\Scripts\python.exe .\manage.py `
+    --data-dir .\data-v4 `
+    serve --host 127.0.0.1 --port 8080
+```
+
+Open:
+
+```text
+http://127.0.0.1:8080
+```
+
+Press `Ctrl+C` to stop the foreground service.
+
+### Trusted private-LAN access
+
+Find the main computer’s current private IPv4 address:
+
+```powershell
+Get-NetIPAddress -AddressFamily IPv4 |
+    Where-Object {
+        $_.IPAddress -like '10.*' -or
+        $_.IPAddress -like '172.*' -or
+        $_.IPAddress -like '192.168.*'
+    } |
+    Select-Object InterfaceAlias, IPAddress
+```
+
+Start the service on one specific private address:
+
+```powershell
+$shopHostAddress = '192.168.1.25'
+
+.\.venv\Scripts\python.exe .\manage.py `
+    --data-dir .\data-v4 `
+    serve --host $shopHostAddress --port 8080
+```
+
+Management URL:
+
+```text
+http://192.168.1.25:8080
+```
+
+Tailor View URL:
+
+```text
+http://192.168.1.25:8080/tailor
+```
+
+Replace the example with the address currently assigned to the shop PC. Both devices must be on the same trusted network. Windows Firewall must permit the private-network connection. Do not use a public address or router port forwarding.
+
+## Automated verification
+
+The current test suite creates temporary databases and does not write to `data-v4`:
 
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-Expected result: 18 tests run and the final line is `OK`. These checks include parent-scoped duplicate rules, rejection of cross-parent stock combinations, canonical dependent-choice responses, server-rendered filter fallback, and catalogue position targets. Share the complete output if any test fails.
+Current expected result:
 
-### Trial database and browser verification
-
-Revision 0.7 does not change the schema. If the existing disposable trial database was created from the corrected Product hierarchy and the check command below reports Product hierarchy `ok`, reuse it and skip the archive/initialization block. The block is needed only when no trial database exists or the existing one predates the Product hierarchy correction.
-
-The corrected initial schema is intentionally incompatible with a trial database created from the earlier model. Preserve an existing trial directory under a timestamped name, then initialize a new disposable trial database. Initialization prompts for an owner username and a password of 12–128 characters and refuses to overwrite any existing database:
-
-```powershell
-$TrialData = Join-Path (Get-Location) 'trial-data'
-if (Test-Path -LiteralPath $TrialData) {
-    $TrialArchive = Join-Path (Get-Location) ("trial-data-before-product-hierarchy-{0}" -f (Get-Date -Format 'yyyyMMdd-HHmmssfff'))
-    Move-Item -LiteralPath $TrialData -Destination $TrialArchive
-    Write-Host "Previous trial data preserved at $TrialArchive"
-}
-.\.venv\Scripts\python.exe manage.py --data-dir .\trial-data init
+```text
+Ran 131 tests
+OK
 ```
 
-Expected result: any earlier `trial-data` directory is preserved beside the project under a timestamped name. A new `trial-data\inventory.sqlite3` is created with seven Product definitions, one owner, and no sample brands or stock.
+The final production baseline was user-verified on Windows with all 131 tests passing, followed by successful schema-v5 integrity and browser QC checks.
 
-Check it, then start the local-only service:
+## Backup and recovery
 
-```powershell
-.\.venv\Scripts\python.exe manage.py --data-dir .\trial-data check
-.\.venv\Scripts\python.exe manage.py --data-dir .\trial-data serve
-```
+Back up to a separate physical device when possible. Treat every backup as private business data.
 
-Expected check result: SQLite integrity `ok`, foreign keys `ok`, schema version 1, and Product hierarchy `ok`. Expected service result: it prints `http://127.0.0.1:8080` and waits for requests. Leave that PowerShell window open and enter that address in a browser. Press `Ctrl+C` in PowerShell to stop the service.
-
-In the browser, verify these behaviours with trial names and quantities only:
-
-1. Sign in with the trial owner.
-2. On Current Stock, select Fabric and confirm its brands appear without Apply filters. Select a brand and article in turn and confirm only that parent’s articles and colours appear. Change an earlier selection and confirm all invalid later selections clear immediately.
-3. Repeat with one Brand → Colour Product and one Brand → Colour → Size Product. Use Apply filters once after the desired chain is selected, then refresh and confirm all valid selected values remain selected.
-4. Temporarily disable JavaScript in the browser and confirm the same Current Stock GET form can load one level at a time by using Apply filters. Re-enable JavaScript afterward.
-5. Open Catalogue; open, add and rename a Product, Brand, Article, Colour and Size as applicable. Confirm each response stays at the relevant management section and preserves its selected parent chain.
-6. Confirm one proposed non-fabric unit only if you know the real unit choice, then add its relevant brand/colour/size labels in parent order.
-7. Add opening stock to a new exact combination, followed by incoming stock.
-8. Confirm Current stock shows the correct exact combination and unit-separated total.
-9. Rename one catalogue label and confirm current stock uses the new label while History retains the old label on the earlier movement.
-10. Refresh the successful stock submission and confirm it does not add stock again.
-
-Do not enter real shop data into the trial database.
-
-### Operational database
-
-After the checks and trial workflow succeed, initialize the default operational database once:
+Create a timestamped, non-overwriting, integrity-checked backup:
 
 ```powershell
-.\.venv\Scripts\python.exe manage.py init
-.\.venv\Scripts\python.exe manage.py check
-.\.venv\Scripts\python.exe manage.py serve
+$shopBackupRoot = 'E:\Yathreb-POS-Backups'
+$shopBackupStamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$shopBackupFile = Join-Path $shopBackupRoot "inventory-$shopBackupStamp.sqlite3"
+
+.\.venv\Scripts\python.exe .\manage.py `
+    --data-dir .\data-v4 `
+    backup --to $shopBackupFile
 ```
 
-Expected results: `data\inventory.sqlite3` is created without sample stock, the integrity check reports `ok`, and the service listens only at `http://127.0.0.1:8080`. Subsequent starts use only the `serve` command. Running `init` again refuses to overwrite the database.
+The backup command uses SQLite’s online backup API, includes committed WAL data, checks the resulting database and refuses to overwrite an existing filename.
 
-To reset a forgotten owner password from the main computer:
+Test restoration into a new directory:
 
 ```powershell
-.\.venv\Scripts\python.exe manage.py reset-password
+$restoreDirectory = ".\restore-check-$shopBackupStamp"
+
+.\.venv\Scripts\python.exe .\manage.py `
+    --data-dir $restoreDirectory `
+    restore --from $shopBackupFile
+
+.\.venv\Scripts\python.exe .\manage.py `
+    --data-dir $restoreDirectory `
+    check
 ```
 
-Expected result: after two matching password prompts, the password changes and all existing browser sessions become invalid.
+Restore never overwrites the working directory. It rotates the restored session secret and invalidates sessions from the backed-up database.
 
-## Optional second terminal
-
-Keep the database on a local disk in the main shop computer. Never put `inventory.sqlite3` on a shared network drive. On the main computer, inspect its private IPv4 addresses:
+A restored copy can be served separately for inspection:
 
 ```powershell
-Get-NetIPAddress -AddressFamily IPv4 | Select-Object InterfaceAlias, IPAddress, PrefixOrigin
+.\.venv\Scripts\python.exe .\manage.py `
+    --data-dir $restoreDirectory `
+    serve --host 127.0.0.1 --port 8081
 ```
 
-Choose the address belonging to the shop network in one of the private ranges `10.*`, `172.16.*` through `172.31.*`, or `192.168.*`. Then replace the example below with that exact address:
+## Safe source updates
+
+Source code and operational data have different lifecycles. Updating Git source must never replace `data-v4`.
+
+A typical source-only update is:
 
 ```powershell
-$ShopHostAddress = '192.168.1.25'
-.\.venv\Scripts\python.exe manage.py serve --host $ShopHostAddress
+git fetch origin
+git switch main
+git pull --ff-only origin main
+git status
 ```
 
-Expected result: the service prints a URL using that address. The second terminal can enter the same URL in its browser and will use the main computer’s service and database. The command accepts only loopback or a specific private IPv4 address. Private-network firewall permission and a stable address are operating-system/network tasks still to be arranged by the user; do not expose the service through router port forwarding or a public network. The current LAN connection uses ordinary HTTP, so use it only on the trusted shop network.
+Before any deployment update:
 
-## Backup and restore check
+1. stop the running service;
+2. create an integrity-checked backup;
+3. preserve the previous source installation;
+4. update or replace source files;
+5. retain the authoritative `data-v4`;
+6. verify dependencies;
+7. run the full test suite;
+8. run the database check;
+9. start the service and complete browser QC.
 
-Back up to a separate physical device when possible. Treat each backup as private business data and restrict who can read or copy it. The example assumes that device is drive `E:`; replace it with the actual approved destination. The backup command uses SQLite’s online backup API, includes committed WAL data, integrity-checks the result, and refuses to overwrite a filename:
+Do not commit `.venv`, SQLite files, backups, real PINs or other operational credentials.
 
-```powershell
-$ShopBackupRoot = 'E:\Yathreb-Inventory-Backups'
-$ShopBackupStamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$ShopBackupFile = Join-Path $ShopBackupRoot "inventory-$ShopBackupStamp.sqlite3"
-.\.venv\Scripts\python.exe manage.py backup --to $ShopBackupFile
-```
+## Recommended operating checklist
 
-Expected result: one new backup file and a `Backup created and integrity checked` message. Choose a new filename for every backup.
+### Before first real use
 
-Test restoration into a new, unused directory; restore never overwrites the working database:
+- Confirm the final pair/piece unit for every Product still marked proposed.
+- Add the real Brand/Article/Colour/Size hierarchy.
+- Configure required standard stitching rates.
+- Add active Tailors.
+- Verify the thermal printer and 80 mm paper settings.
+- Configure the Tailor View PIN only if the LAN view will be used.
+- Create and restore-test the first clean production backup.
 
-```powershell
-$ShopRestoreDirectory = ".\restore-check-$ShopBackupStamp"
-.\.venv\Scripts\python.exe manage.py --data-dir $ShopRestoreDirectory restore --from $ShopBackupFile
-.\.venv\Scripts\python.exe manage.py --data-dir $ShopRestoreDirectory check
-.\.venv\Scripts\python.exe manage.py --data-dir $ShopRestoreDirectory serve --port 8081
-```
+### Daily
 
-Run the restore commands in the same PowerShell session as the backup commands, or set `$ShopBackupFile` to the exact existing backup path first. Expected results: restore and integrity-check messages, followed by a separate service at `http://127.0.0.1:8081`. Sign in using the credentials stored in the backup and compare important catalogue and stock totals. Stop it with `Ctrl+C`. A real recovery can run from a newly restored directory in the same way, leaving damaged or uncertain files untouched for investigation.
+- Confirm the application opens from the main shop computer.
+- Use the management pages only against the authoritative shop-PC database.
+- Review any negative stock shown after sales.
+- Create a dated backup at the agreed daily closing time.
 
-Backup scheduling, destination, retention, recovery-time target, and acceptable data-loss window remain open operating decisions.
+### Periodically
 
-## Scope still open
+- Copy verified backups to a separate physical device.
+- Test restoration into a new directory.
+- Check disk space and Windows updates.
+- Reconfirm printer and private-LAN access after network changes.
 
-This source intentionally does not decide pricing level, currency, tax treatment, discounts, payment methods or allocation, customer details on bills, credit sales, returns, exchanges, cancellations, damaged stock, adjustment authorization, supplier/purchase records, roll and dye-batch tracking, receipt hardware/layout, sales-report definitions, business-day timezone, staff roles, automatic service startup, or automated backup policy. These decisions belong to later milestones recorded in `Clothing-Stitching-Project-Record.md`.
+## Deliberate limitations and open work
+
+The current foundation does not yet implement:
+
+- returns, refunds, exchanges, cancellations or bill editing;
+- damage, wastage and authorized stock-adjustment workflows;
+- supplier, purchase-cost, profit, roll or dye-batch records;
+- payment methods, payment allocation notes or categories;
+- staff roles, granular permissions or a full audit log;
+- automatic tailoring status transitions and delivery completion rules;
+- Tailor assignment history;
+- cumulative/overall reporting beyond the current Sales History, daily and monthly reports;
+- silent printer control;
+- automatic backup scheduling and retention policy;
+- automatic LAN discovery or a native Android Tailor app;
+- cloud synchronization or public remote access.
+
+Important business decisions also remain open for price-change authorization, non-Pakistan mobile normalization, shared-family mobile handling, final non-fabric units, operational backup targets and formal return/refund policy.
+
+## Production readiness boundary
+
+The deployed application is a verified local operational foundation for Yathreb’s current inventory, billing, tailoring, Customer-account and payment workflows. It should not be described as covering the deliberate limitations above until those policies and features are designed, implemented and tested.
+
+The shop PC remains the source of truth. Preserve its operational database, maintain verified backups, and test every future source update against a copy before applying it to live operations.
