@@ -108,4 +108,4 @@ Set-Location 'C:\Users\hanif\Desktop\Yathreb-Safeer\Inventory'
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-Expected result: 127 tests run and the final result is `OK`. Codex must report this as unverified until the user supplies the output.
+Expected result: 131 tests run and the final result is `OK`. The final production baseline was user-verified on Windows with all 131 tests passing, followed by successful schema-v5 integrity and browser QC checks.
