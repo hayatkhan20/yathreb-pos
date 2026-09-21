@@ -261,7 +261,7 @@ shop/auth.py                      Owner login/logout and CSRF handling
 shop/db.py                        Explicit SQLite lifecycle and schema identity checks
 shop/inventory.py                 Catalogue, stock, sales, Customers, tailoring, Tailors and payments
 shop/web.py                       Management and Tailor View routes
-shop/migrations/001_initial.sql   Full schema-v4 foundation and seeded Products
+shop/migrations/001_initial.sql   Full schema-v5 definition and seeded Products
 shop/migrations/002_tailors.sql   Explicit schema-v4 to schema-v5 Tailor migration
 shop/templates/                   Server-rendered management, receipt and Tailor View pages
 shop/static/app.css               Responsive screen and 80 mm print styling
